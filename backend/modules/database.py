@@ -186,7 +186,8 @@ db = Database()
 def init_db(schema_path: str = None) -> bool:
     """
     Initialize the database schema by executing schema.sql.
-    Splits on ';;' delimiter (not ';') to avoid splitting inside stored procedures.
+    Splits on ';' but respects single-quoted strings to avoid splitting
+    semicolons inside SQL string literals (e.g., DEFAULT values).
     Each statement is executed individually; errors for CREATE TABLE IF NOT EXISTS
     are expected and ignored, but actual errors are logged.
     Returns True if all statements succeeded, False if any failed.
@@ -202,8 +203,28 @@ def init_db(schema_path: str = None) -> bool:
         logger.error(f"Schema file not found: {schema_path}")
         return False
 
-    # Use ;; delimiter to avoid splitting inside any multi-statement DDL
-    statements = [s.strip() for s in schema_sql.split(";") if s.strip()]
+    # Split on ';' but respect single-quoted strings to avoid splitting
+    # semicolons that appear inside SQL string literals (e.g., DEFAULT values)
+    statements = []
+    current_stmt = []
+    in_single_quote = False
+    i = 0
+    while i < len(schema_sql):
+        ch = schema_sql[i]
+        if ch == "'" and (i == 0 or schema_sql[i-1] != '\\'):
+            in_single_quote = not in_single_quote
+        if ch == ";" and not in_single_quote:
+            stmt = "".join(current_stmt).strip()
+            if stmt:
+                statements.append(stmt)
+            current_stmt = []
+        else:
+            current_stmt.append(ch)
+        i += 1
+    # Don't forget the last statement
+    last = "".join(current_stmt).strip()
+    if last:
+        statements.append(last)
     success_count = 0
     fail_count = 0
 
@@ -223,7 +244,7 @@ def init_db(schema_path: str = None) -> bool:
                     success_count += 1
                 except pymysql.err.MySQLError as e:
                     code = e.args[0] if e.args else 0
-                    # 1050: table exists, 1062: duplicate entry — expected with IF NOT EXISTS / ON DUPLICATE
+                    # 1050: table exists, 1062: duplicate entry
                     if code in (1050, 1062, 1051):
                         success_count += 1
                     else:
