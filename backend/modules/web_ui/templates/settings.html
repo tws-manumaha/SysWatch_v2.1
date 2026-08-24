@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="animate-fade-in">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-100">Settings</h1>
+            <p class="text-sm text-slate-500">System configuration</p>
+        </div>
+    </div>
+
+    <div class="card p-5">
+        {% if config_items %}
+        <div class="overflow-x-auto">
+            <table>
+                <thead>
+                    <tr><th>Key</th><th>Value</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                    {% for item in config_items %}
+                    <tr>
+                        <td class="text-emerald-400 font-mono text-sm">{{ item.config_key }}</td>
+                        <td class="text-slate-300 font-mono text-sm">
+                            {% if item.config_key in ['jwt_secret', 'encryption_key'] %}
+                                <span class="text-slate-600">[hidden]</span>
+                            {% else %}
+                                {{ item.config_value }}
+                            {% endif %}
+                        </td>
+                        <td class="text-slate-500 text-sm">{{ item.description or '' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm text-slate-500 text-center py-8">No configuration items found</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
