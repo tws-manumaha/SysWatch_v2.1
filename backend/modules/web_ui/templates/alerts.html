@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Alerts{% endblock %}
+
+{% block content %}
+<div class="animate-fade-in">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-100">Alerts</h1>
+            <p class="text-sm text-slate-500">{{ alerts|length }} alerts (showing latest 100)</p>
+        </div>
+    </div>
+
+    <div class="card p-5 mb-6">
+        <h2 class="text-sm font-semibold text-slate-300 mb-4">Alert Rules</h2>
+        {% if rules %}
+        <div class="overflow-x-auto">
+            <table>
+                <thead>
+                    <tr><th>Name</th><th>Metric</th><th>Operator</th><th>Threshold</th><th>Severity</th><th>Enabled</th></tr>
+                </thead>
+                <tbody>
+                    {% for rule in rules %}
+                    <tr>
+                        <td class="text-slate-200">{{ rule.name }}</td>
+                        <td class="text-slate-400">{{ rule.metric }}</td>
+                        <td class="text-slate-400">{{ rule.operator }}</td>
+                        <td class="text-slate-400">{{ rule.threshold }}</td>
+                        <td>
+                            {% if rule.severity == 'CRITICAL' %}<span class="badge badge-crit">{{ rule.severity }}</span>
+                            {% elif rule.severity == 'WARNING' %}<span class="badge badge-warn">{{ rule.severity }}</span>
+                            {% else %}<span class="badge badge-info">{{ rule.severity }}</span>{% endif %}
+                        </td>
+                        <td>{% if rule.enabled %}<span class="badge badge-up">Enabled</span>{% else %}<span class="badge badge-down">Disabled</span>{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm text-slate-500 text-center py-4">No alert rules configured</p>
+        {% endif %}
+    </div>
+
+    <div class="card p-5">
+        <h2 class="text-sm font-semibold text-slate-300 mb-4">Active Alerts</h2>
+        {% if alerts %}
+        <div class="overflow-x-auto">
+            <table>
+                <thead>
+                    <tr><th>Hostname</th><th>Metric</th><th>Value</th><th>Threshold</th><th>Severity</th><th>Status</th><th>Triggered</th></tr>
+                </thead>
+                <tbody>
+                    {% for alert in alerts %}
+                    <tr>
+                        <td class="text-emerald-400">{{ alert.hostname }}</td>
+                        <td class="text-slate-300">{{ alert.metric }}</td>
+                        <td class="text-slate-400">{{ alert.value }}</td>
+                        <td class="text-slate-400">{{ alert.threshold }}</td>
+                        <td>
+                            {% if alert.severity == 'CRITICAL' %}<span class="badge badge-crit">{{ alert.severity }}</span>
+                            {% elif alert.severity == 'WARNING' %}<span class="badge badge-warn">{{ alert.severity }}</span>
+                            {% else %}<span class="badge badge-info">{{ alert.severity }}</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if alert.status == 'OPEN' %}<span class="badge badge-down">{{ alert.status }}</span>
+                            {% elif alert.status == 'ACKNOWLEDGED' %}<span class="badge badge-warn">{{ alert.status }}</span>
+                            {% else %}<span class="badge badge-up">{{ alert.status }}</span>{% endif %}
+                        </td>
+                        <td class="text-slate-500 text-sm">{{ alert.triggered_at }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm text-slate-500 text-center py-8">No alerts</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
