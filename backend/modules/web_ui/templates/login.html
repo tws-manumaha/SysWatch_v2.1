@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-screen">
+    <div class="w-full max-w-md">
+        <div class="card p-8">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg mb-4">
+                    <i data-lucide="shield-check" class="w-8 h-8 text-white"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-slate-100">SysWatch v2.1</h1>
+                <p class="text-sm text-slate-500 mt-1">Sign in to your monitoring dashboard</p>
+            </div>
+
+            {% if error %}
+            <div class="bg-rose-500/10 border border-rose-500/30 rounded-lg p-3 mb-4 flex items-center gap-2 animate-fade-in">
+                <i data-lucide="alert-circle" class="w-5 h-5 text-rose-400 shrink-0"></i>
+                <span class="text-sm text-rose-300">{{ error }}</span>
+            </div>
+            {% endif %}
+
+            <form method="POST" action="/login" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wide">Email</label>
+                    <input type="email" name="email" required placeholder="admin@syswatch.local"
+                           class="input" autofocus>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wide">Password</label>
+                    <input type="password" name="password" required placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;"
+                           class="input">
+                </div>
+                <button type="submit" class="btn btn-primary w-full justify-center py-2.5">
+                    <i data-lucide="log-in" class="w-4 h-4"></i>
+                    Sign In
+                </button>
+            </form>
+
+            <div class="mt-6 pt-6 border-t border-slate-800 text-center">
+                <p class="text-xs text-slate-600">
+                    Default: admin@syswatch.local / admin123<br>
+                    <span class="text-rose-400/60">Change password after first login</span>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.querySelector('aside')?.style?.setProperty('display', 'none');
+    document.querySelector('main')?.classList?.remove('p-6');
+</script>
+{% endblock %}
