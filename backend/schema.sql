@@ -1,6 +1,6 @@
--- SysWatch v2.1 — Complete Database Schema
+-- SysWatch v2.1 - Complete Database Schema
 -- MySQL 8.0+ / MariaDB 10.6+
--- Designed for InnoDB engine with utf8mb4 charset
+-- InnoDB engine, utf8mb4 charset
 
 SET FOREIGN_KEY_CHECKS = 0;
 
@@ -10,9 +10,11 @@ SET FOREIGN_KEY_CHECKS = 0;
 CREATE TABLE IF NOT EXISTS users (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     email           VARCHAR(255) NOT NULL UNIQUE,
+    name            VARCHAR(200) DEFAULT '',
     password_hash   VARCHAR(255) NOT NULL,
     role            ENUM('viewer','operator','admin') NOT NULL DEFAULT 'viewer',
     active          BOOLEAN NOT NULL DEFAULT TRUE,
+    last_login      TIMESTAMP NULL,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_users_email (email)
@@ -43,6 +45,18 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     INDEX idx_tokens_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS login_attempts (
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    ip_address      VARCHAR(45) NOT NULL,
+    username        VARCHAR(255),
+    user_agent      VARCHAR(500),
+    success         BOOLEAN NOT NULL DEFAULT FALSE,
+    attempted_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_login_ip (ip_address),
+    INDEX idx_login_user (username),
+    INDEX idx_login_time (attempted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ============================================================
 -- HOSTS & HOST GROUPS
 -- ============================================================
@@ -66,10 +80,14 @@ CREATE TABLE IF NOT EXISTS hosts (
     agent_key_hash  VARCHAR(255),
     ssh_port        INT DEFAULT 22,
     ssh_user        VARCHAR(100),
+    ssh_password_enc TEXT,
+    ssh_password_iv VARCHAR(64),
+    ssh_key_enc     TEXT,
+    ssh_key_iv      VARCHAR(64),
     winrm_port      INT DEFAULT 5985,
     winrm_user      VARCHAR(100),
     snmp_community  VARCHAR(100),
-    snmp_port      INT DEFAULT 161,
+    snmp_port       INT DEFAULT 161,
     snmp_version    ENUM('v1','v2c','v3') DEFAULT 'v2c',
     group_id        INT,
     agent_installed BOOLEAN NOT NULL DEFAULT FALSE,
@@ -99,8 +117,18 @@ CREATE TABLE IF NOT EXISTS host_credentials (
     INDEX idx_creds_host (host_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS agent_keys (
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    hostname        VARCHAR(255) NOT NULL,
+    key_hash        VARCHAR(255) NOT NULL UNIQUE,
+    key_prefix      VARCHAR(20) NOT NULL,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_used       TIMESTAMP NULL,
+    INDEX idx_agent_keys_host (hostname)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ============================================================
--- METRICS (time-series, partitioned by range in production)
+-- METRICS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS metrics (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -147,6 +175,7 @@ CREATE TABLE IF NOT EXISTS alert_rules (
     cause           TEXT,
     action          TEXT,
     enabled         BOOLEAN NOT NULL DEFAULT TRUE,
+    last_triggered  TIMESTAMP NULL,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_rules_enabled (enabled),
@@ -165,6 +194,7 @@ CREATE TABLE IF NOT EXISTS alerts (
     status          ENUM('OPEN','ACKNOWLEDGED','RESOLVED') NOT NULL DEFAULT 'OPEN',
     cause           TEXT,
     action          TEXT,
+    notes           TEXT,
     acknowledged_by VARCHAR(255),
     acknowledged_at TIMESTAMP NULL,
     resolved        BOOLEAN NOT NULL DEFAULT FALSE,
@@ -242,20 +272,22 @@ CREATE TABLE IF NOT EXISTS remediation_suggestions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
--- REMOTE EXECUTION
+-- REMOTE EXECUTION (renamed from remote_exec_requests)
 -- ============================================================
-CREATE TABLE IF NOT EXISTS remote_exec_requests (
+CREATE TABLE IF NOT EXISTS remote_executions (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     hostname        VARCHAR(255) NOT NULL,
     command         TEXT NOT NULL,
     requested_by    VARCHAR(255) NOT NULL,
-    status          ENUM('pending','approved','rejected','completed','failed','timeout') NOT NULL DEFAULT 'pending',
+    status          ENUM('pending','approved','rejected','running','completed','failed','timeout') NOT NULL DEFAULT 'pending',
     approved_by     VARCHAR(255),
     approved_at     TIMESTAMP NULL,
     rejected_by     VARCHAR(255),
     rejected_at     TIMESTAMP NULL,
     executed_at     TIMESTAMP NULL,
+    completed_at    TIMESTAMP NULL,
     output          TEXT,
+    error           TEXT,
     exit_code       INT,
     timeout_seconds INT DEFAULT 30,
     requested_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -270,15 +302,41 @@ CREATE TABLE IF NOT EXISTS runbooks (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     name            VARCHAR(200) NOT NULL,
     description     TEXT,
+    category        VARCHAR(100) DEFAULT 'general',
     script_type     ENUM('bash','powershell','python') NOT NULL DEFAULT 'bash',
-    script_content  TEXT NOT NULL,
+    script_content  TEXT,
     target_hosts    VARCHAR(500),
+    created_by      VARCHAR(255),
     run_count       INT DEFAULT 0,
     last_run        TIMESTAMP NULL,
     last_run_status ENUM('success','failed','never') NOT NULL DEFAULT 'never',
     last_run_output TEXT,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS runbook_steps (
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    runbook_id      INT NOT NULL,
+    step_number     INT NOT NULL,
+    action          VARCHAR(500) NOT NULL,
+    command         TEXT,
+    expected_result TEXT,
+    FOREIGN KEY (runbook_id) REFERENCES runbooks(id) ON DELETE CASCADE,
+    INDEX idx_steps_runbook (runbook_id),
+    INDEX idx_steps_order (runbook_id, step_number)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS runbook_executions (
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    runbook_id      INT NOT NULL,
+    executed_by     VARCHAR(255) NOT NULL,
+    status          ENUM('running','completed','failed','cancelled') NOT NULL DEFAULT 'running',
+    started_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at    TIMESTAMP NULL,
+    output          TEXT,
+    FOREIGN KEY (runbook_id) REFERENCES runbooks(id) ON DELETE CASCADE,
+    INDEX idx_exec_runbook (runbook_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
@@ -316,11 +374,16 @@ CREATE TABLE IF NOT EXISTS snmp_devices (
     ip              VARCHAR(45) NOT NULL,
     device_type     ENUM('switch','router','firewall','access_point','server','other') NOT NULL DEFAULT 'other',
     community       VARCHAR(100) DEFAULT 'public',
+    community_enc   TEXT,
+    community_iv    VARCHAR(64),
+    snmp_port       INT DEFAULT 161,
     snmp_version    ENUM('v1','v2c','v3') DEFAULT 'v2c',
+    enabled         BOOLEAN NOT NULL DEFAULT TRUE,
     status          ENUM('UP','DOWN','WARNING') NOT NULL DEFAULT 'UP',
     uptime_seconds  BIGINT DEFAULT 0,
     interfaces      JSON,
     sys_descr       TEXT,
+    last_response   VARCHAR(500),
     last_polled     TIMESTAMP NULL,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_snmp_host (hostname),
@@ -436,7 +499,7 @@ CREATE TABLE IF NOT EXISTS backup_metadata (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
--- SYSTEM CONFIG (key-value store for runtime config)
+-- SYSTEM CONFIG (key-value store)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS system_config (
     config_key      VARCHAR(100) PRIMARY KEY,
@@ -453,8 +516,14 @@ CREATE TABLE IF NOT EXISTS cloud_credentials (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     provider        ENUM('aws','gcp','azure') NOT NULL,
     name            VARCHAR(100) NOT NULL,
-    encrypted_data  TEXT NOT NULL,
-    encryption_iv   VARCHAR(64) NOT NULL,
+    account_id      VARCHAR(200),
+    region          VARCHAR(100),
+    access_key_enc  TEXT,
+    access_key_iv   VARCHAR(64),
+    secret_key_enc  TEXT,
+    secret_key_iv   VARCHAR(64),
+    encrypted_data  TEXT,
+    encryption_iv   VARCHAR(64),
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,
     last_verified   TIMESTAMP NULL,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -492,10 +561,10 @@ INSERT INTO system_config (config_key, config_value, description) VALUES
     ('host_check_interval', '120', 'Seconds between host status checks'),
     ('ai_analysis_interval', '300', 'Seconds between AI anomaly analysis runs'),
     ('snmp_poll_interval', '180', 'Seconds between SNMP polls'),
-    ('enable_ssl', 'true', 'Enable HTTPS with Let''s Encrypt'),
-    ('ssl_domain', '', 'Domain name for Let''s Encrypt certificate'),
-    ('ssl_email', '', 'Email for Let''s Encrypt registration'),
-    ('cors_origins', '', 'Comma-separated allowed CORS origins (empty = same-origin only)'),
+    ('enable_ssl', 'false', 'Enable HTTPS with Let Encrypt (apostrophe removed)'),
+    ('ssl_domain', '', 'Domain name for Let Encrypt certificate'),
+    ('ssl_email', '', 'Email for Let Encrypt registration'),
+    ('cors_origins', '', 'Comma-separated allowed CORS origins'),
     ('session_timeout', '3600', 'Session timeout in seconds'),
     ('jwt_secret', '', 'JWT signing secret (auto-generated if empty)')
 ON DUPLICATE KEY UPDATE config_value = VALUES(config_value);
@@ -508,5 +577,11 @@ INSERT INTO alert_rules (name, hostname, metric, operator, threshold, severity, 
     ('Host Unreachable', '%', 'status', '=', 0, 'CRITICAL', 60, 3, 'Host is not responding to checks', 'Verify network connectivity and host status', TRUE),
     ('High Load Average', '%', 'load_1', '>', 4, 'WARNING', 300, 3, 'Load average exceeds 4', 'Investigate system load and processes', TRUE)
 ON DUPLICATE KEY UPDATE name = VALUES(name);
+
+-- Default admin user (password: admin123)
+-- CHANGE THIS PASSWORD IMMEDIATELY AFTER INSTALL
+INSERT INTO users (email, name, password_hash, role, active) VALUES
+    ('admin@syswatch.local', 'Administrator', '$2b$12$WMIvewSv2294a6WXA8DozuE0UvyMTztTq.k3yq1LwOliUgBrN0qUG', 'admin', TRUE)
+ON DUPLICATE KEY UPDATE email = VALUES(email);
 
 SET FOREIGN_KEY_CHECKS = 1;
