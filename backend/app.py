@@ -9,7 +9,7 @@ from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from modules.config import Config
-from modules.database import db
+from modules.database import db, init_db
 from modules.logging_manager import setup_logging, log_event, utcnow
 
 setup_logging()
@@ -17,7 +17,9 @@ logger = logging.getLogger("syswatch.app")
 
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(__name__,
+                template_folder="modules/web_ui/templates",
+                static_folder="modules/web_ui/static")
     app.config["SECRET_KEY"] = Config.JWT_SECRET
     app.config["JSON_SORT_KEYS"] = False
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
@@ -29,7 +31,7 @@ def create_app():
         logger.warning("CORS is open - configure CORS_ORIGINS in production")
 
     try:
-        db.init_schema()
+        init_db()
         logger.info("Database schema initialized")
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
@@ -67,6 +69,10 @@ def create_app():
     app.register_blueprint(system_logs_bp, url_prefix="/api")
     app.register_blueprint(cloud_bp, url_prefix="/api")
     app.register_blueprint(remote_exec_bp, url_prefix="/api")
+
+    # Register the web UI blueprint (Jinja2 templates served at root)
+    from modules.web_ui.routes import web_ui_bp
+    app.register_blueprint(web_ui_bp)
 
     @app.route("/api/health", methods=["GET"])
     def health_check():
