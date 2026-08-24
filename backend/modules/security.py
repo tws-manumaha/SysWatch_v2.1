@@ -70,7 +70,7 @@ ALLOWED_MODULES = {
     "modules.api_system_logs", "modules.api_notifications", "modules.api_users",
     "modules.api_backups", "modules.api_security", "modules.api_remote_exec",
     "modules.api_templates", "modules.api_cloud", "modules.api_agent",
-    "modules.alert_engine", "modules.host_checker",
+    "modules.alert_engine", "modules.host_checker", "modules.web_ui.routes",
 }
 
 
@@ -216,14 +216,28 @@ def revoke_all_user_tokens(user_id: int) -> int:
 def check_brute_force(ip: str, username: str = None) -> bool:
     cutoff = utcnow() - timedelta(minutes=Config.LOCKOUT_MINUTES)
     ip_result = db.query_one(
-        "SELECT COUNT(*) as cnt FROM audit_log WHERE action='login_failed' AND ip=%s AND timestamp >= %s",
+        "SELECT COUNT(*) as cnt FROM login_attempts WHERE ip_address=%s AND success=FALSE AND attempted_at >= %s",
         (ip, cutoff),
     )
     total_by_ip = ip_result["cnt"] if ip_result else 0
-    return total_by_ip >= Config.MAX_LOGIN_ATTEMPTS
+    if total_by_ip >= Config.MAX_LOGIN_ATTEMPTS:
+        return True
+    if username:
+        user_result = db.query_one(
+            "SELECT COUNT(*) as cnt FROM login_attempts WHERE username=%s AND success=FALSE AND attempted_at >= %s",
+            (username, cutoff),
+        )
+        total_by_user = user_result["cnt"] if user_result else 0
+        if total_by_user >= Config.MAX_LOGIN_ATTEMPTS:
+            return True
+    return False
 
 
 def record_failed_attempt(ip: str, username: str, user_agent: str = ""):
+    db.execute(
+        "INSERT INTO login_attempts (ip_address, username, user_agent, success, attempted_at) VALUES (%s, %s, %s, FALSE, %s)",
+        (ip, username, user_agent[:500], utcnow()),
+    )
     db.execute(
         "INSERT INTO audit_log (action, username, ip, user_agent, status_code, details, timestamp) VALUES ('login_failed', %s, %s, %s, 401, %s, %s)",
         (username, ip, user_agent[:500], json.dumps({"reason": "invalid_credentials"}), utcnow()),
@@ -232,6 +246,10 @@ def record_failed_attempt(ip: str, username: str, user_agent: str = ""):
 
 
 def record_successful_login(ip: str, username: str, user_agent: str = ""):
+    db.execute(
+        "INSERT INTO login_attempts (ip_address, username, user_agent, success, attempted_at) VALUES (%s, %s, %s, TRUE, %s)",
+        (ip, username, user_agent[:500], utcnow()),
+    )
     db.execute(
         "INSERT INTO audit_log (action, username, ip, user_agent, status_code, details, timestamp) VALUES ('login_success', %s, %s, %s, 200, %s, %s)",
         (username, ip, user_agent[:500], json.dumps({"reason": "valid_credentials"}), utcnow()),
