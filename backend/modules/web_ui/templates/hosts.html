@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Hosts{% endblock %}
+
+{% block content %}
+<div class="animate-fade-in">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-100">Hosts</h1>
+            <p class="text-sm text-slate-500">{{ hosts|length }} hosts registered</p>
+        </div>
+    </div>
+
+    <div class="card p-5">
+        {% if hosts %}
+        <div class="overflow-x-auto">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Hostname</th>
+                        <th>IP</th>
+                        <th>OS Type</th>
+                        <th>CPU</th>
+                        <th>Memory</th>
+                        <th>Status</th>
+                        <th>Last Seen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for host in hosts %}
+                    <tr>
+                        <td><a href="/hosts/{{ host.hostname }}" class="text-emerald-400 hover:text-emerald-300 font-medium">{{ host.hostname }}</a></td>
+                        <td class="text-slate-400">{{ host.ip }}</td>
+                        <td><span class="badge badge-info">{{ host.os_type }}</span></td>
+                        <td class="text-slate-400">{{ host.cpu_count }}</td>
+                        <td class="text-slate-400">{{ "%.0f"|format(host.memory_total_mb / 1024) if host.memory_total_mb else 0 }} GB</td>
+                        <td>
+                            {% if host.status == 'UP' %}<span class="badge badge-up">UP</span>
+                            {% elif host.status == 'DOWN' %}<span class="badge badge-down">DOWN</span>
+                            {% elif host.status == 'WARNING' %}<span class="badge badge-warn">WARNING</span>
+                            {% elif host.status == 'PENDING' %}<span class="badge badge-info">PENDING</span>
+                            {% else %}<span class="badge badge-info">{{ host.status }}</span>{% endif %}
+                        </td>
+                        <td class="text-slate-500 text-sm">{{ host.last_seen or 'Never' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm text-slate-500 text-center py-12">
+            No hosts registered. Add hosts via the API or network discovery.
+        </p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
