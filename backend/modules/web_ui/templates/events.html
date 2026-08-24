@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Events{% endblock %}
+
+{% block content %}
+<div class="animate-fade-in">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-100">Events</h1>
+            <p class="text-sm text-slate-500">{{ events|length }} events (showing latest 200)</p>
+        </div>
+    </div>
+
+    <div class="card p-5">
+        {% if events %}
+        <div class="overflow-x-auto">
+            <table>
+                <thead>
+                    <tr><th>Type</th><th>Host</th><th>Source</th><th>User</th><th>Time</th></tr>
+                </thead>
+                <tbody>
+                    {% for event in events %}
+                    <tr>
+                        <td><span class="badge badge-info">{{ event.event_type }}</span></td>
+                        <td class="text-slate-300">{{ event.hostname or '-' }}</td>
+                        <td class="text-slate-400">{{ event.source or '-' }}</td>
+                        <td class="text-slate-400">{{ event.user or '-' }}</td>
+                        <td class="text-slate-500 text-sm">{{ event.event_time }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm text-slate-500 text-center py-8">No events recorded</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
