@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Remote Exec{% endblock %}
+
+{% block content %}
+<div class="animate-fade-in">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-100">Remote Execution</h1>
+            <p class="text-sm text-slate-500">Command execution history with human-in-the-loop approval</p>
+        </div>
+    </div>
+
+    <div class="card p-5">
+        {% if executions %}
+        <div class="overflow-x-auto">
+            <table>
+                <thead>
+                    <tr><th>Hostname</th><th>Command</th><th>Requested By</th><th>Status</th><th>Requested At</th></tr>
+                </thead>
+                <tbody>
+                    {% for ex in executions %}
+                    <tr>
+                        <td class="text-emerald-400">{{ ex.hostname }}</td>
+                        <td class="text-slate-300 font-mono text-xs max-w-xs truncate">{{ ex.command }}</td>
+                        <td class="text-slate-400">{{ ex.requested_by }}</td>
+                        <td>
+                            {% if ex.status == 'pending' %}<span class="badge badge-warn">{{ ex.status }}</span>
+                            {% elif ex.status == 'approved' %}<span class="badge badge-up">{{ ex.status }}</span>
+                            {% elif ex.status == 'rejected' or ex.status == 'failed' %}<span class="badge badge-down">{{ ex.status }}</span>
+                            {% elif ex.status == 'completed' %}<span class="badge badge-up">{{ ex.status }}</span>
+                            {% else %}<span class="badge badge-info">{{ ex.status }}</span>{% endif %}
+                        </td>
+                        <td class="text-slate-500 text-sm">{{ ex.requested_at }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm text-slate-500 text-center py-8">No remote executions recorded</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
