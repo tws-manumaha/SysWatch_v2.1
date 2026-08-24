@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}AI Insights{% endblock %}
+
+{% block content %}
+<div class="animate-fade-in">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-100">AI Insights</h1>
+            <p class="text-sm text-slate-500">AI-powered anomaly detection and remediation</p>
+        </div>
+    </div>
+
+    <div class="card p-5 mb-6">
+        <h2 class="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
+            <i data-lucide="brain" class="w-4 h-4"></i> Anomaly Insights
+        </h2>
+        {% if insights %}
+        <div class="space-y-3">
+            {% for insight in insights %}
+            <div class="p-4 rounded-lg bg-slate-800/40 border border-slate-800">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-slate-200">{{ insight.hostname }}</span>
+                        <span class="text-xs text-slate-500">{{ insight.metric }}</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <span class="badge
+                            {% if insight.severity == 'CRITICAL' %}badge-crit
+                            {% elif insight.severity == 'WARNING' %}badge-warn
+                            {% else %}badge-info{% endif %}">{{ insight.severity }}</span>
+                        <span class="badge
+                            {% if insight.status == 'OPEN' %}badge-down
+                            {% elif insight.status == 'ACKNOWLEDGED' %}badge-warn
+                            {% else %}badge-up{% endif %}">{{ insight.status }}</span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2 text-sm mb-2">
+                    <div><span class="text-slate-500">Current:</span> <span class="text-slate-300">{{ insight.current_value }}</span></div>
+                    <div><span class="text-slate-500">Baseline:</span> <span class="text-slate-300">{{ insight.baseline_mean }}</span></div>
+                    <div><span class="text-slate-500">Deviation:</span> <span class="text-amber-400">{{ insight.deviation }}</span></div>
+                </div>
+                {% if insight.ai_analysis %}
+                <p class="text-sm text-slate-400 mt-2">{{ insight.ai_analysis }}</p>
+                {% endif %}
+                {% if insight.suggested_action %}
+                <div class="mt-2 p-2 rounded bg-emerald-500/5 border border-emerald-500/20">
+                    <p class="text-xs text-emerald-300">Suggested: {{ insight.suggested_action }}</p>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-slate-500 text-center py-8">No AI insights generated yet</p>
+        {% endif %}
+    </div>
+
+    <div class="card p-5">
+        <h2 class="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
+            <i data-lucide="wrench" class="w-4 h-4"></i> Remediation Suggestions
+        </h2>
+        {% if suggestions %}
+        <div class="space-y-3">
+            {% for s in suggestions %}
+            <div class="p-4 rounded-lg bg-slate-800/40 border border-slate-800">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium text-slate-200">{{ s.hostname }}</span>
+                    <div class="flex gap-2">
+                        <span class="badge
+                            {% if s.risk_level == 'CRITICAL' %}badge-crit
+                            {% elif s.risk_level == 'HIGH' %}badge-down
+                            {% elif s.risk_level == 'MEDIUM' %}badge-warn
+                            {% else %}badge-info{% endif %}">{{ s.risk_level }}</span>
+                        <span class="badge
+                            {% if s.status == 'pending' %}badge-warn
+                            {% elif s.status == 'approved' %}badge-up
+                            {% elif s.status == 'rejected' %}badge-down
+                            {% else %}badge-info{% endif %}">{{ s.status }}</span>
+                    </div>
+                </div>
+                <p class="text-sm text-slate-400">{{ s.issue }}</p>
+                <div class="mt-2 p-2 rounded bg-slate-900/60 font-mono text-xs text-emerald-300">
+                    {{ s.suggested_command }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-slate-500 text-center py-8">No remediation suggestions</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
