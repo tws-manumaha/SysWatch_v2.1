@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}{{ hostname }}{% endblock %}
+
+{% block content %}
+<div class="animate-fade-in">
+    {% if host %}
+    <div class="flex items-center gap-3 mb-6">
+        <a href="/hosts" class="text-slate-500 hover:text-slate-300">
+            <i data-lucide="arrow-left" class="w-5 h-5"></i>
+        </a>
+        <div>
+            <h1 class="text-2xl font-bold text-slate-100">{{ host.hostname }}</h1>
+            <p class="text-sm text-slate-500">{{ host.ip }} - {{ host.os_type }}</p>
+        </div>
+        {% if host.status == 'UP' %}<span class="badge badge-up">UP</span>
+        {% elif host.status == 'DOWN' %}<span class="badge badge-down">DOWN</span>
+        {% else %}<span class="badge badge-warn">{{ host.status }}</span>{% endif %}
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="card p-5">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">CPU Cores</p>
+            <p class="text-2xl font-bold text-slate-100">{{ host.cpu_count }}</p>
+        </div>
+        <div class="card p-5">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Total Memory</p>
+            <p class="text-2xl font-bold text-slate-100">{{ "%.1f"|format(host.memory_total_mb / 1024) if host.memory_total_mb else 0 }} GB</p>
+        </div>
+        <div class="card p-5">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Total Disk</p>
+            <p class="text-2xl font-bold text-slate-100">{{ host.disk_total_gb }} GB</p>
+        </div>
+        <div class="card p-5">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Agent</p>
+            <p class="text-lg font-bold {% if host.agent_installed %}text-emerald-400{% else %}text-slate-500{% endif %}">
+                {% if host.agent_installed %}Installed{% else %}Not Installed{% endif %}
+            </p>
+        </div>
+    </div>
+
+    {% if metrics %}
+    <div class="card p-5 mb-6">
+        <h2 class="text-sm font-semibold text-slate-300 mb-4">Current Metrics</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+                <p class="text-xs text-slate-500">CPU Usage</p>
+                <p class="text-xl font-bold text-emerald-400">{{ metrics.cpu }}%</p>
+            </div>
+            <div>
+                <p class="text-xs text-slate-500">Memory Usage</p>
+                <p class="text-xl font-bold text-amber-400">{{ metrics.memory }}%</p>
+            </div>
+            <div>
+                <p class="text-xs text-slate-500">Disk Usage</p>
+                <p class="text-xl font-bold text-rose-400">{{ metrics.disk }}%</p>
+            </div>
+            <div>
+                <p class="text-xs text-slate-500">Load (1m)</p>
+                <p class="text-xl font-bold text-slate-200">{{ metrics.load_1 }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if history %}
+    <div class="card p-5">
+        <h2 class="text-sm font-semibold text-slate-300 mb-4">Metric History (Recent 50)</h2>
+        <div class="overflow-x-auto">
+            <table>
+                <thead>
+                    <tr><th>Metric</th><th>Value</th><th>Timestamp</th></tr>
+                </thead>
+                <tbody>
+                    {% for m in history %}
+                    <tr>
+                        <td class="text-slate-300">{{ m.metric_name }}</td>
+                        <td class="text-slate-400">{{ m.value }}</td>
+                        <td class="text-slate-500 text-sm">{{ m.timestamp }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="card p-8 text-center">
+        <i data-lucide="server-off" class="w-12 h-12 text-slate-600 mx-auto mb-4"></i>
+        <p class="text-slate-400">Host "{{ hostname }}" not found</p>
+        <a href="/hosts" class="btn btn-primary mt-4">Back to Hosts</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
