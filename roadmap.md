@@ -1,630 +1,492 @@
-# SysWatch v2.1 — Product Roadmap
+# SysWatch v2.1 — Product Roadmap (Revised)
 
 > **Document owner:** Makarand Maha  
 > **Last updated:** 25 August 2026  
-> **Status:** v2.1 shipped (Flask + Jinja2, dark UI, AI insights, human-in-the-loop remediation)  
-> **Repository:** https://github.com/tws-manumaha/SysWatch_v2.1
+> **Status:** v2.1 shipped; M365 integration analysis complete after full codebase review  
+> **Repositories:**  
+> - SysWatch: https://github.com/tws-manumaha/SysWatch_v2.1  
+> - M365 Toolkit: https://github.com/tws-manumaha/M365-AI-SaaS-Toolkit  
+> **Supersedes:** Previous roadmap.md (which was based on the GitHub repo only, not the full uploaded codebase)
 
 ---
 
 ## Table of Contents
 
-1. [Where SysWatch Stands Today](#1-where-syswatch-stands-today)
-2. [M365-AI-SaaS-Toolkit — Repository Review](#2-m365-ai-saas-toolkit--repository-review)
-3. [Integration Analysis: SysWatch x M365 Toolkit](#3-integration-analysis-syswatch--m365-toolkit)
-4. [Recommended Integration Architecture](#4-recommended-integration-architecture)
-5. [Roadmap Phase 1 — Stabilise and Harden (v2.2)](#5-roadmap-phase-1--stabilise-and-harden-v22)
-6. [Roadmap Phase 2 — M365 Integration (v3.0)](#6-roadmap-phase-2--m365-integration-v30)
-7. [Roadmap Phase 3 — Advanced AI and Automation (v3.5)](#7-roadmap-phase-3--advanced-ai-and-automation-v35)
-8. [Roadmap Phase 4 — Ecosystem and Scale (v4.0)](#8-roadmap-phase-4--ecosystem-and-scale-v40)
-9. [Feature Backlog — SysAdmin Wish List](#9-feature-backlog--sysadmin-wish-list)
-10. [Summary Opinion](#10-summary-opinion)
+1. [Executive Summary](#1-executive-summary)
+2. [What the Full M365 Codebase Review Revealed](#2-what-the-full-m365-codebase-review-revealed)
+3. [M365 Toolkit Evolution and Current State](#3-m365-toolkit-evolution-and-current-state)
+4. [Integration Analysis: SysWatch x M365 Toolkit (Revised)](#4-integration-analysis-syswatch--m365-toolkit-revised)
+5. [Recommended Integration Architecture (Revised)](#5-recommended-integration-architecture-revised)
+6. [Roadmap Phase 1 — Stabilise and Harden (v2.2)](#6-roadmap-phase-1--stabilise-and-harden-v22)
+7. [Roadmap Phase 2 — M365 Integration (v3.0)](#7-roadmap-phase-2--m365-integration-v30)
+8. [Roadmap Phase 3 — Advanced AI and Automation (v3.5)](#8-roadmap-phase-3--advanced-ai-and-automation-v35)
+9. [Roadmap Phase 4 — Ecosystem and Scale (v4.0)](#9-roadmap-phase-4--ecosystem-and-scale-v40)
+10. [Feature Backlog](#10-feature-backlog)
+11. [Summary Opinion](#11-summary-opinion)
 
 ---
 
-## 1. Where SysWatch Stands Today
+## 1. Executive Summary
 
-### What is SysWatch
+This is a revised roadmap based on a thorough review of the complete M365-AI-SaaS-Toolkit codebase — including 6 zip archives and 4 chat exports that were not available when the first roadmap was written. The review revealed that the M365 Toolkit is significantly more advanced than the GitHub repo suggested. The previous roadmap underestimated the toolkit's capabilities by treating Security and Recovery as empty stubs; in reality, both modules contain real, functional PowerShell scripts. The total count of real, implemented PowerShell functions is 90 (not 181 as previously stated), and the Node.js API layer has 49 fully wired REST endpoints across 8 modules (not 4 as on GitHub).
 
-SysWatch is a self-hosted, AI-enabled IT infrastructure monitoring platform built for sysadmins who want full control over their monitoring stack. It runs on-premises or in a private cloud, stores metrics in MySQL, and serves a Flask-based web UI with a dark slate / emerald-accent aesthetic.
+The core recommendation remains the same: **integrate the M365 Toolkit into SysWatch**, but the integration scope is now larger and the technical path is clearer. The V10 skeleton already implements Azure AD device-code authentication, an LLM-powered AI service, an audit logger, RBAC, rate limiting, and a secure PowerShell runner — all of which inform the integration design.
 
-### Current Capability Matrix (v2.1)
+---
 
-| Area | What exists | Maturity |
+## 2. What the Full M365 Codebase Review Revealed
+
+### The uploaded codebase vs. GitHub
+
+The GitHub repository (`tws-manumaha/M365-AI-SaaS-Toolkit`) contains an early skeleton with stub service files, only 4 API routes (users only), and no real authentication. The uploaded zip files contain the full V10 codebase, which is a dramatically different and more mature codebase.
+
+### What V10 has that GitHub does not
+
+| Component | GitHub repo | V10 (uploaded) |
 |---|---|---|
-| **Host monitoring** | Cross-OS agent (psutil) for Linux, Windows, macOS; CPU, memory, disk, network, load, swap, processes, uptime | Production-ready |
-| **Alerting** | Rule-based alert engine with thresholds, cooldowns, durations; severity levels (INFO, WARNING, CRITICAL); default rules seeded | Production-ready |
-| **AI insights** | Anomaly detection (z-score baseline), multi-provider LLM support (OpenAI, Anthropic, Google, local Ollama), AI-generated remediation suggestions | Functional, needs tuning |
-| **Human-in-the-loop** | All AI remediation requires explicit human approval; remote execution has approve/reject workflow | Production-ready |
-| **Security** | JWT auth, bcrypt password hashing, API key auth, brute-force protection, AES-256-GCM credential encryption, input validation, module allowlist | Production-ready |
-| **Web UI** | 11 Jinja2 templates: dashboard, hosts, host detail, alerts, events, AI insights, remote exec, reports, settings, login; Tailwind CSS via CDN | Functional, needs polish |
-| **API** | 15 REST API blueprints covering hosts, alerts, events, AI, discovery, runbooks, SNMP, reporting, security, backups, users, notifications, cloud, agent, remote exec | Production-ready |
-| **Database** | 31 tables in MySQL 8.0+ / MariaDB 10.6+; seed data for admin user, alert rules, system config | Production-ready |
-| **Deployment** | Docker Compose (MySQL + Redis + Flask + Nginx), Let's Encrypt SSL, installers for Linux (systemd) and Windows (NSSM), cross-OS agent | Production-ready |
-| **SNMP** | SNMP device polling (v1/v2c/v3), interface monitoring, device types (switch, router, firewall, AP, server) | Functional |
-| **Cloud** | Cloud credential management (AWS, GCP, Azure), launch templates | Skeleton — needs provider-specific implementations |
-| **Backup** | Automated backup scheduler with retention, checksums, metadata tracking | Production-ready |
-| **Reporting** | Report generation (host summary, alert summary, AI analysis, security audit) in JSON, CSV, PDF, HTML | Functional |
+| **Authentication** | JWT secret in `.env` | Azure AD device-code flow via `@azure/msal-node`, multi-tenant session management, RBAC class |
+| **API routes** | 4 (users only) | 49 endpoints across all 8 modules with `logAndRespond` audit wrapper |
+| **Modules** | users.js (real), licensing/exchange/groups/teams/sharepoint.js (thin wrappers), security/reports/workflows.js (18-byte stubs) | All 8 modules fully implemented with 5-7 operations each, taking sessionId/tenantId/userId params |
+| **AI/Copilot** | Keyword matching (`copilotRoutes.js`) | Full LLM-powered AI service (`aiService.js`, 12.7KB) with `processQuery`, `callAI`, `handleAction`, `executeAction`, `confirmAction` — maps natural language to module actions |
+| **PowerShell execution** | `powershellPool.js` (raw `child_process.spawn`) | `securePowerShellRunner.js` using `node-powershell` library with per-session tenant connection, command queue, session lifecycle management |
+| **Audit logging** | None | `auditLogger.js` — database-backed with `log()`, `getLogs()`, `createTable()` |
+| **Security middleware** | Basic JWT verify | Helmet, CORS, rate limiting, RBAC permission checks |
+| **Web UI** | Basic `index.html` (2.5KB) | Full SPA `index.html` (36.7KB) with device-code login flow, API testing panel, all module sections |
+| **Recovery module** | 30 stub functions (`Invoke-RecoveryTask1-30.ps1`) | 15 real functions: `Restore-DeletedUser`, `Restore-DeletedMailbox`, `Undo-DisableUser`, `Get-ActionHistory`, etc. + 30 remaining stubs |
+| **Security module** | 30 stub functions (`Invoke-SecurityTask1-30.ps1`) | 5 real functions: `Get-AuditLogs`, `Get-SecurityReport`, `Get-RiskyUsers`, `Get-SignInLogs`, `Get-ConditionalAccessPolicies` + 30 remaining stubs |
+| **Reports module** | 18-byte stub | 6 report functions: user activity, license usage, group activity, SharePoint usage, Teams usage, export |
+| **Database** | 2-table schema (users + logs) in PostgreSQL | Same minimal schema (this was identified as a weak point in the Copilot review) |
+| **Deployment** | nginx + pm2 | nginx + pm2 + `tenant-setup.ps1` for M365 tenant configuration |
 
-### What SysWatch does NOT do yet
+### Real PowerShell function count (corrected)
 
-- No M365 / Azure AD / Entra ID integration
-- No Windows Event Log or syslog collection
-- No Docker container monitoring
-- No Kubernetes monitoring
-- No network topology mapping
-- No Slack / Teams / Discord / email alert notifications (table exists, no sender)
-- No mobile-responsive UI or PWA
-- No multi-tenancy
-- No SSO / OAuth / SAML
-- No log aggregation (ELK-style)
-- No configuration management drift detection
-- No asset inventory / CMDB
-- No patch management
-- No capacity planning / forecasting
+The previous roadmap stated "181 real functions." After reading every `.ps1` and `.txt` file in the V10 codebase, the actual count of real, implemented functions is:
 
----
-
-## 2. M365-AI-SaaS-Toolkit — Repository Review
-
-### What it is
-
-The M365-AI-SaaS-Toolkit is a PowerShell-centric management platform for Microsoft 365 environments. It wraps 241 PowerShell functions across 8 modules behind a Node.js / Express API, with JWT authentication and a basic web UI.
-
-### Architecture summary
-
-```
-M365-AI-SaaS-Toolkit/
-├── app/                          # Node.js Express backend
-│   ├── server.js                 # Entry point (Express, port 3000)
-│   ├── config/
-│   │   ├── db.js                 # PostgreSQL connection pool (pg)
-│   │   ├── auth.js               # JWT secret from env
-│   │   └── modules.js            # Module registry
-│   ├── engine/
-│   │   ├── moduleLoader.js       # Dynamic module loader
-│   │   └── powershellPool.js     # PowerShell process pool (spawn powershell.exe)
-│   ├── middleware/
-│   │   └── authMiddleware.js     # JWT authenticate + authorize(roles)
-│   ├── modules/                   # 8 JS wrapper modules
-│   │   ├── users.js, licensing.js, exchange.js, groups.js,
-│   │   ├── teams.js, sharepoint.js, security.js (stub), reports.js (stub)
-│   │   └── common.js             # Shared utilities
-│   ├── routes/
-│   │   ├── authRoutes.js         # Login/logout
-│   │   ├── moduleRoutes.js       # CRUD for users module
-│   │   ├── copilotRoutes.js      # AI copilot (keyword-based intent matching)
-│   │   └── memoryRoutes.js       # In-memory state
-│   └── services/                 # Stubs (copilot, logging, memory)
-├── Licensing/Functions/           # 31 PowerShell functions
-├── Modules/
-│   ├── Users/Functions/           # 30 PowerShell functions
-│   ├── Exchange/Functions/        # 30 PowerShell functions
-│   ├── Groups/Functions/          # 30 PowerShell functions
-│   ├── Teams/Functions/           # 31 PowerShell functions
-│   ├── SharePoint/Functions/      # 29 PowerShell functions
-│   ├── Security/Functions/        # 30 PowerShell functions (stubs)
-│   └── Recovery/Functions/        # 30 PowerShell functions (stubs)
-├── database/schema.sql            # Minimal (users + logs tables)
-├── public/                        # Basic HTML UI
-└── deployment/                    # nginx + pm2 + ssl-setup
-```
-
-### Module inventory
-
-| Module | Functions | Key capabilities |
-|---|---|---|
-| **Licensing** | 31 | License assignment, removal, bulk operations, consumption tracking, alerts when >90% consumed, cleanup recommendations, health checks |
-| **Users** | 30 | CRUD, bulk create/disable/enable/delete, password resets, alias management, session revocation, account lock/unlock, profile updates, export |
-| **Exchange** | 30 | Mailbox CRUD, shared mailbox, permissions, forwarding, auto-reply, audit, rules, transport rules, size reporting, bulk operations |
-| **Groups** | 30 | Security/O365/dynamic groups, member/owner management, bulk operations, orphan detection, guest cleanup, activity reports |
-| **Teams** | 31 | Team CRUD, channel management, member/owner management, app management, archive/restore, guest management, bulk operations |
-| **SharePoint** | 29 | Site CRUD, user management, permissions, storage, lists, sharing settings, file upload/download, deleted site recovery |
-| **Security** | 30 | Stub functions (Invoke-SecurityTask1-30) — placeholders, not implemented |
-| **Recovery** | 30 | Stub functions (Invoke-RecoveryTask1-30) — placeholders, not implemented |
-
-### Technology stack
-
-- **Backend:** Node.js + Express 4.18
-- **Database:** PostgreSQL (pg 8.11)
-- **Auth:** JWT (jsonwebtoken 9.0)
-- **PowerShell execution:** `child_process.spawn('powershell.exe')` with per-user session pooling
-- **Process management:** PM2
-- **Reverse proxy:** Nginx with SSL
-
-### Assessment
-
-**Strengths:**
-- Comprehensive PowerShell function library (241 functions, 6 fully implemented modules)
-- Clean module/loader architecture — the `moduleLoader.js` + `powershellPool.js` pattern is sound
-- Human-in-the-loop copilot concept (keyword-based, multi-step with confirmation)
-- Covers M365 management comprehensively: licensing, users, Exchange, Groups, Teams, SharePoint
-
-**Weaknesses:**
-- Security and Recovery modules are stubs (60 placeholder functions doing nothing)
-- PostgreSQL with a 2-table schema (just `users` and `logs`) — no audit trail, no execution history
-- No encryption of M365 credentials — they sit in plaintext env vars
-- The copilot uses hardcoded keyword matching, not actual AI/LLM
-- No background scheduling — everything is on-demand
-- No alerting or monitoring — it is purely a management tool
-- Windows-only (spawns `powershell.exe`; no `pwsh` cross-platform support)
-- No test suite
-- Several service files are 18-byte stubs (copilot, logging, memory)
-- In-memory state for copilot sessions (lost on restart)
-- Only Users routes are wired in `moduleRoutes.js`; the other five modules are defined but not routed
-
----
-
-## 3. Integration Analysis: SysWatch x M365 Toolkit
-
-### The core question
-
-Can these two projects be integrated into a single unified platform?
-
-**Short answer: Yes, and they should be. They are highly complementary.**
-
-### Why integration makes sense
-
-SysWatch and the M365 Toolkit occupy two sides of the same sysadmin workflow:
-
-```
-  ┌─────────────────────────────────────────────────────┐
-  │                    SysAdmin's Day                    │
-  │                                                      │
-  │   "Is something wrong?"          "Fix it."           │
-  │         │                             │               │
-  │    ┌────▼────┐                  ┌────▼────┐         │
-  │    │ SysWatch │                  │  M365   │         │
-  │    │  (alert) │ ──────────────►  │ Toolkit │         │
-  │    │          │  "CPU 95% on    │ (remedy)│         │
-  │    │          │   Exchange VM"   │         │         │
-  │    └─────────┘                  └─────────┘         │
-  │                                                      │
-  │   Monitor + Alert ────────► Diagnose + Remediate     │
-  └─────────────────────────────────────────────────────┘
-```
-
-- **SysWatch** answers: "Is something wrong?" (monitor, alert, anomaly detect)
-- **M365 Toolkit** answers: "What should I do about it?" (manage, remediate, automate)
-
-Together they form a complete **observe → detect → diagnose → remediate** loop — the exact workflow every sysadmin follows daily.
-
-### Technical compatibility
-
-| Dimension | SysWatch v2.1 | M365 Toolkit | Compatibility |
+| Module | Real functions | Stub/placeholder files | Key functions |
 |---|---|---|---|
-| **Language** | Python (Flask) | JavaScript (Node.js/Express) | Different runtimes — need bridge |
-| **Database** | MySQL 8.0+ | PostgreSQL | Different — unify on MySQL |
-| **Auth** | JWT + bcrypt + sessions | JWT (no bcrypt) | Compatible — adopt SysWatch's auth |
-| **PowerShell** | Used for remote exec (paramiko/subprocess) | Used via `child_process.spawn` | Same concept — unify under Python `subprocess` |
-| **Web UI** | Jinja2 + Tailwind (dark theme) | Plain HTML | Adopt SysWatch's UI |
-| **AI** | Multi-provider LLM (OpenAI, Anthropic, Google, Ollama) | Keyword matching (not AI) | SysWatch's AI is strictly superior |
-| **Scheduling** | APScheduler (background jobs) | None | SysWatch already has this |
-| **Security** | AES-256-GCM encryption, brute-force protection | Plaintext credentials | SysWatch's security is production-grade |
-| **Human-in-the-loop** | Full approve/reject workflow for remediation | Multi-step copilot confirmation | Compatible — merge concepts |
+| **Users** | 29 | 3 | Get-M365Users, New-M365User, Disable-M365User, Reset-M365Password, Lock-User, Unlock-User, Revoke-Sessions, Bulk-CreateUsers, Bulk-DisableUsers, Export-M365Users, etc. |
+| **Licensing** | 15 | 24 | Get-LicenseAlerts, Get-LicenseConsumption, Get-LicenseSkus, Get-UserLicenses, Assign-License, Remove-License, Get-UnlicensedUsers, Detect-LicenseOveruse, etc. |
+| **Recovery** | 15 | 36 | Restore-DeletedUser, Restore-DeletedMailbox, Restore-DeletedGroup, Restore-DeletedTeam, Undo-DisableUser, Undo-ResetPassword, Get-ActionHistory, etc. |
+| **Groups** | 11 | 16 | Get-Groups, New-Group, Add-GroupMember, Add-GroupOwner, Get-GroupMembers, Get-EmptyGroups, Get-DynamicGroups, etc. |
+| **Exchange** | 7 | 23 | Get-Mailboxes, Get-MailboxStatistics, Get-MailboxPermissions, Get-MailboxSize, Get-SharedMailboxes, Get-UserMailbox, Add-MailboxPermission |
+| **Security** | 5 | 31 | Get-AuditLogs, Get-SecurityReport, Get-RiskyUsers, Get-SignInLogs, Get-ConditionalAccessPolicies |
+| **Teams** | 4 | 27 | Get-Teams, Get-TeamChannels, Get-TeamUsers (most Teams functions are small .ps1 wrappers, not fully implemented) |
+| **SharePoint** | 4 | 53 | Get-Sites, Get-SiteStorage (most SP functions are small .ps1 wrappers) |
+| **TOTAL** | **90** | **213** | |
 
-### Integration challenges
+### PowerShell code quality (from reading the actual scripts)
 
-1. **Language gap:** SysWatch is Python; M365 Toolkit's API layer is Node.js. The 241 PowerShell functions themselves are language-agnostic (they are `.ps1`/`.txt` files). The Node.js wrapper is disposable — Python can call PowerShell directly via `subprocess`.
+The real functions follow a consistent, professional pattern:
+- `[CmdletBinding()]` with `SupportsShouldProcess` for destructive operations
+- `begin/process/end` block structure
+- Input validation (UPN format regex checking)
+- Pre-existence checks (verify user exists before disabling)
+- `try/catch` with structured `[PSCustomObject]` return: `@{ Success=$true; Message="..."; Data=$result }`
+- `Export-ModuleMember -Function` at the end
+- `Write-Verbose` for diagnostic logging
+- `WHATIF` support for `-WhatIf` parameter
 
-2. **Database gap:** M365 Toolkit uses PostgreSQL with a 2-table schema. SysWatch uses MySQL with 31 tables. Integration means porting the M365 data model into SysWatch's schema (adding M365-specific tables) and dropping PostgreSQL entirely.
+This is significantly better quality than the GitHub repo suggested. The functions are production-grade PowerShell with proper error handling, validation, and structured output.
 
-3. **Credential management:** M365 Toolkit stores Azure AD app credentials in `.env` plaintext. SysWatch has AES-256-GCM encryption. The M365 tenant credentials must be migrated into SysWatch's encrypted credential store.
+### What the Copilot chat exports revealed
 
-4. **PowerShell execution model:** M365 Toolkit's `powershellPool.js` maintains per-user PowerShell sessions. SysWatch's remote execution model is per-command via `subprocess`. The session pool concept is valuable for M365 (avoids re-authenticating to Microsoft Graph on every call) and should be ported to Python.
+The chat exports (from Microsoft Copilot sessions) document the project's architecture review and roadmap discussion. Key points from the Copilot assessment:
 
-5. **Module maturity:** 60 of the 241 PowerShell functions are stubs. The 181 real functions cover Licensing, Users, Exchange, Groups, Teams, and SharePoint — these are the valuable ones.
+1. The project was assessed at **60-70% production readiness**
+2. **10 critical weak points** were identified: M365 auth gap, script quality inconsistency, no standard output contract, database unused, Copilot only partial, security basic, no user/session model, no execution governance, frontend minimal, no observability
+3. A **5-phase fix roadmap** was proposed: Fix M365 authentication, Standardize scripts, Integrate database, Upgrade Copilot to real assistant, Add logging and monitoring
+4. The user (Makarand) explicitly pushed back on the AI "skipping layers and assuming structure" — demanding a disciplined, validate-before-build approach
+5. A professional Word document (`M365_Platform_Review_and_Roadmap.docx`) was created for a team meeting
 
-### Integration verdict
-
-**Feasibility: HIGH** — The PowerShell functions are the real asset. The Node.js layer is a thin wrapper that Python can replace. The integration work is:
-
-1. Port the 181 real PowerShell functions into SysWatch's repository under `backend/modules/m365/`
-2. Build a Python `powershell_pool.py` that maintains persistent PowerShell sessions (like the Node.js version)
-3. Add M365-specific database tables to `schema.sql`
-4. Create M365 API blueprints and web UI templates
-5. Wire M365 alerts into SysWatch's existing alert engine and AI remediation pipeline
-
-The result: a single Python/Flask application that monitors infrastructure AND manages Microsoft 365, with AI-powered diagnosis connecting the two.
+The project vision, as documented in the V6 Master Guide, follows enterprise-grade principles: Zero Trust, MFA-first authentication, RBAC, secure logging, Microsoft Graph API (no legacy modules), and no stored passwords.
 
 ---
 
-## 4. Recommended Integration Architecture
+## 3. M365 Toolkit Evolution and Current State
+
+### Version history (reconstructed from file evidence)
+
+| Version | What it was | Evidence |
+|---|---|---|
+| V1-V3 | Simple PowerShell scripts (one-liners and small functions) | `M365_Readme_V1/V2/V3.txt`, `M365_PowerShell_Toolkit.txt` |
+| V5 | Enterprise toolkit with GUI dashboard, RBAC, automation | `M365_V5_Enterprise.zip` |
+| V6 | "Secure Graph Toolkit" — Graph API only, MFA, no legacy modules, GUI + CLI, logging, RBAC | `M365_V6_Final_Toolkit.zip`, `M365_V6_Master_Guide.txt`, `README_M365_V6.md` |
+| V7 | Web starter project (Node.js + Express) | `M365_V7_Complete_Repo.zip`, `M365_V7_Full_Enterprise.zip`, `M365_Web_Starter_Project.zip` |
+| V10 (Skeleton) | Full platform: Node.js + Express + 8 modules + 49 API routes + AI service + device-code auth + secure PowerShell runner + audit logger + RBAC + rate limiting + 90 real PS functions + web SPA | `M365_PLATFORM_SKELETON_V10.zip` |
+
+### Architecture at V10
+
+```
+M365 Platform V10
+|
++-- app/
+|   +-- server.js                    # Express with CORS, rate limiting, static files
+|   +-- server-with-DB.js            # Enhanced version with helmet, DB routes, all middleware
+|   +-- auth/
+|   |   +-- azureAuth.js             # MSAL device-code flow, session management, user/group lookup
+|   |   +-- multiTenantAuth.js       # Per-tenant session management
+|   |   +-- rbac.js                  # Role-based access control manager
+|   +-- engine/
+|   |   +-- powershellPool.js        # Legacy PowerShell pool (spawn-based)
+|   |   +-- securePowerShellRunner.js # New: node-powershell library, per-tenant sessions
+|   |   +-- moduleLoader.js          # Dynamic module loader
+|   +-- routes/
+|   |   +-- moduleRoutes.js          # 49 REST endpoints (33.5KB, 1003 lines)
+|   |   +-- aiRoutes.js             # AI assistant: /ask, /confirm, /clear
+|   |   +-- copilotRoutes.js         # Legacy keyword copilot: /ask, /select, /confirm, /execute
+|   |   +-- authRoutes.js           # Device-code: /device/initiate, /device/poll, /session/validate, /logout
+|   +-- modules/
+|   |   +-- users.js (6 ops)         # getAllUsers, getUserDetails, disableUser, enableUser, createUser, resetPassword
+|   |   +-- licensing.js (6 ops)     # getLicenseSkus, getUserLicenses, assignLicense, removeLicense, getUnlicensedUsers, getLicenseConsumption
+|   |   +-- exchange.js (6 ops)     # getMailboxes, getMailboxDetails, enableMailbox, disableMailbox, createMailbox, getMailboxStatistics
+|   |   +-- groups.js (6 ops)       # getGroups, getMembers, createGroup, addMember, removeMember, deleteGroup
+|   |   +-- teams.js (7 ops)        # getTeams, getChannels, createTeam, addUser, removeUser, archiveTeam, unarchiveTeam
+|   |   +-- sharepoint.js (6 ops)   # getSites, getSiteDetails, createSite, removeSite, addUser, removeUser
+|   |   +-- security.js (5 ops)     # getAuditLogs, getSignInLogs, getSecurityReport, getRiskyUsers, getConditionalAccessPolicies
+|   |   +-- reports.js (6 ops)      # getUserActivityReport, getLicenseUsageReport, getGroupActivityReport, getSharePointSiteUsage, getTeamsUsageReport, exportReport
+|   |   +-- admin.js (1 op)         # exportLogs
+|   +-- services/
+|   |   +-- aiService.js             # LLM-powered AI (12.7KB): processQuery, callAI, handleAction, executeAction, confirmAction
+|   +-- utils/
+|   |   +-- auditLogger.js          # DB-backed audit: log(), getLogs(), createTable()
+|   |   +-- logger.js               # File logging
++-- modules/                         # PowerShell scripts
+|   +-- Users/Functions/ (29 real)
+|   +-- Licensing/Functions/ (15 real)
+|   +-- Exchange/Functions/ (7 real)
+|   +-- Groups/Functions/ (11 real)
+|   +-- Teams/Functions/ (4 real)
+|   +-- SharePoint/Functions/ (4 real)
+|   +-- Security/Functions/ (5 real)
+|   +-- Recovery/Functions/ (15 real)
++-- public/index.html               # 36.7KB SPA with device-code login, all module panels
++-- database/schema.sql             # Minimal (2 tables — identified as weak point)
++-- deployment/
+    +-- tenant-setup.ps1            # M365 tenant configuration script
+    +-- nginx.conf, pm2.config.js   # Deployment config
+```
+
+### What's still missing in V10 (the gap to close)
+
+Based on the Copilot assessment and code review:
+
+1. **Database is still minimal** — 2-table schema (users + logs). The `auditLogger.js` has a `createTable()` method but it's not clear the schema is actually used. All session state is in-memory.
+2. **213 stub/small PowerShell files** — Many modules have functions that are one-liner `.ps1` or `.txt` wrappers without real implementation. Teams and SharePoint are particularly thin.
+3. **Copilot vs. AI Service duplication** — Two copilot systems exist: the legacy keyword-based `copilotRoutes.js` and the new LLM-based `aiService.js` + `aiRoutes.js`. The legacy one should be removed.
+4. **No background scheduling** — Everything is on-demand API calls. No cron/scheduler for periodic syncs or reports.
+5. **No alerting** — The toolkit can retrieve M365 data but doesn't alert on anomalies (license overuse, risky users, etc.).
+6. **No monitoring** — No health checks, no performance metrics, no Grafana/Azure Monitor integration.
+7. **PostgreSQL not MySQL** — SysWatch uses MySQL; the M365 Toolkit uses PostgreSQL. Must unify.
+8. **Windows-only** — `securePowerShellRunner.js` spawns `powershell.exe`. Needs `pwsh` for cross-platform.
+9. **Three service files are still 18-byte stubs** — `copilotService.js`, `loggingService.js`, `memoryService.js`.
+
+---
+
+## 4. Integration Analysis: SysWatch x M365 Toolkit (Revised)
+
+### Revised assessment
+
+The integration is even more attractive than previously assessed. The V10 codebase already implements several things that the previous roadmap assumed we'd need to build from scratch:
+
+| What the previous roadmap assumed | What V10 actually has |
+|---|---|
+| Build M365 auth from scratch | Done — `azureAuth.js` with MSAL device-code flow |
+| Build a Python PowerShell pool | Can port the concept from `securePowerShellRunner.js` |
+| Build an AI copilot from scratch | Done — `aiService.js` with LLM integration, action mapping, confirmation flow |
+| Build audit logging | Done — `auditLogger.js` with DB-backed logging |
+| Build RBAC | Done — `rbac.js` with role definitions |
+| Build M365 module wrappers | Done — all 8 modules with 5-7 operations each |
+
+The integration now becomes less about building and more about **porting** — taking the V10 Node.js implementations and translating them to Python/Flask within the SysWatch framework, while keeping the PowerShell scripts as-is (they're language-agnostic).
+
+### Integration verdict (revised)
+
+**Feasibility: HIGH** — The V10 codebase proves the concept works. The architecture is sound. The PowerShell functions are production-grade. The AI service design (intent mapping to module actions with confirmation) aligns perfectly with SysWatch's human-in-the-loop approach.
+
+The integration work is primarily:
+1. Port the Node.js module wrappers to Python (straightforward — they're thin wrappers that build PowerShell commands and parse JSON responses)
+2. Port the `securePowerShellRunner.js` concept to Python `subprocess.Popen` with persistent sessions
+3. Port the `aiService.js` LLM integration to Python (SysWatch already has `ai/llm.py` with multi-provider support)
+4. Port the `azureAuth.js` device-code flow to Python using `msal` Python SDK
+5. Add M365 tables to SysWatch's `schema.sql`
+6. Create M365 Jinja2 templates matching SysWatch's dark theme
+7. Wire M365 alerts into SysWatch's alert engine and AI remediation pipeline
+
+---
+
+## 5. Recommended Integration Architecture (Revised)
 
 ```
 SysWatch v3.0 (post-integration)
-│
-├── backend/
-│   ├── app.py                          # Flask entrypoint
-│   ├── schema.sql                      # Extended with M365 tables
-│   ├── modules/
-│   │   ├── (existing modules)           # config, database, security, etc.
-│   │   ├── m365/                       # NEW — M365 integration
-│   │   │   ├── __init__.py
-│   │   │   ├── connection.py           # Microsoft Graph auth (app-only)
-│   │   │   ├── powershell_pool.py      # Persistent PS sessions (port from Node.js)
-│   │   │   ├── graph_client.py         # Direct Graph API calls (Python)
-│   │   │   └── modules/
-│   │   │       ├── users.py            # M365 user operations
-│   │   │       ├── licensing.py        # License management
-│   │   │       ├── exchange.py         # Mailbox operations
-│   │   │       ├── groups.py           # Group operations
-│   │   │       ├── teams.py            # Teams operations
-│   │   │       └── sharepoint.py       # SharePoint operations
-│   │   ├── api_m365.py                 # NEW — Flask blueprint for M365 API
-│   │   └── web_ui/
-│   │       ├── routes.py               # Extended with /m365 routes
-│   │       └── templates/
-│   │           ├── m365_dashboard.html # NEW
-│   │           ├── m365_users.html     # NEW
-│   │           ├── m365_licenses.html  # NEW
-│   │           ├── m365_exchange.html  # NEW
-│   │           ├── m365_teams.html     # NEW
-│   │           └── m365_security.html  # NEW
-│   └── powershell/                     # NEW — PowerShell scripts
-│       ├── Connect-M365.ps1
-│       ├── Users/
-│       ├── Licensing/
-│       ├── Exchange/
-│       ├── Groups/
-│       ├── Teams/
-│       └── SharePoint/
-│
-├── agents/
-│   └── syswatch_agent.py               # Existing (unchanged)
-│
-└── docker-compose.yml                  # Extended if needed
+|
++-- backend/
+|   +-- app.py                          # Flask entrypoint
+|   +-- schema.sql                      # Extended with M365 tables
+|   +-- modules/
+|   |   +-- (existing SysWatch modules)  # config, database, security, etc.
+|   |   +-- m365/                       # NEW — M365 integration (ported from V10)
+|   |   |   +-- __init__.py
+|   |   |   +-- auth.py                 # Port of azureAuth.js — MSAL device-code flow
+|   |   |   +-- powershell_runner.py    # Port of securePowerShellRunner.js
+|   |   |   +-- graph_client.py         # Direct Graph API calls (Python msal)
+|   |   |   +-- ai_m365.py              # Port of aiService.js — M365-specific AI
+|   |   |   +-- rbac.py                 # Port of rbac.js — M365 permission model
+|   |   |   +-- modules/
+|   |   |       +-- users.py            # Port of users.js (6 operations)
+|   |   |       +-- licensing.py        # Port of licensing.js (6 operations)
+|   |   |       +-- exchange.py         # Port of exchange.js (6 operations)
+|   |   |       +-- groups.py           # Port of groups.js (6 operations)
+|   |   |       +-- teams.py            # Port of teams.js (7 operations)
+|   |   |       +-- sharepoint.py       # Port of sharepoint.js (6 operations)
+|   |   |       +-- security.py         # Port of security.js (5 operations)
+|   |   |       +-- recovery.py         # Port of Recovery PS functions (15 functions)
+|   |   |       +-- reports.py          # Port of reports.js (6 report types)
+|   |   +-- api_m365.py                 # Flask blueprint with 49+ M365 API endpoints
+|   |   +-- web_ui/
+|   |       +-- routes.py               # Extended with /m365 routes
+|   |       +-- templates/
+|   |           +-- m365_dashboard.html  # M365 overview
+|   |           +-- m365_users.html     # User management
+|   |           +-- m365_licenses.html  # License dashboard
+|   |           +-- m365_exchange.html  # Mailbox overview
+|   |           +-- m365_teams.html     # Teams management
+|   |           +-- m365_security.html   # Security posture
+|   |           +-- m365_recovery.html  # Recovery and undo operations
+|   |           +-- m365_reports.html    # M365 usage reports
+|   +-- powershell/                     # PowerShell scripts (from V10, as-is)
+|       +-- Connect-M365.ps1
+|       +-- Users/
+|       +-- Licensing/
+|       +-- Exchange/
+|       +-- Groups/
+|       +-- Teams/
+|       +-- SharePoint/
+|       +-- Security/
+|       +-- Recovery/
+|
++-- agents/
+|   +-- syswatch_agent.py               # Existing (unchanged)
+|
++-- docker-compose.yml                  # Extended if needed
 ```
 
-### Dual-path M365 access strategy
+### Key architecture decisions (from V10 evidence)
 
-SysWatch v3.0 should access M365 via two paths, choosing the best for each operation:
+1. **Device-code flow, not client-secret** — V10 uses MSAL device-code flow (`azureAuth.js`), which means the user authenticates interactively via browser. This is more secure than storing a client secret but doesn't work for background jobs. SysWatch integration should support **both**: device-code for interactive sessions, client-secret for scheduled syncs.
 
-1. **Microsoft Graph API (Python, direct)** — For read-heavy operations (list users, check license consumption, get mailbox sizes). This is fast, REST-based, needs no PowerShell, and works cross-platform. Uses `msal` library for app-only authentication.
+2. **Per-session PowerShell, not per-command** — V10's `securePowerShellRunner.js` maintains a persistent PowerShell session per user, pre-authenticated to the M365 tenant. This avoids re-authenticating on every command. SysWatch should port this pattern.
 
-2. **PowerShell (via `powershell_pool.py`)** — For operations that require PowerShell cmdlets not available via Graph (e.g., Exchange transport rules, SharePoint site management, some Teams operations). The pool maintains an authenticated session per tenant.
+3. **AI maps to module actions** — V10's `aiService.js` parses user input, maps it to a module action (e.g., "disable user" then `users.disable`), and executes through the module wrapper with confirmation. This is exactly the human-in-the-loop pattern SysWatch already uses.
 
-This dual-path approach means SysWatch v3.0 is not Windows-dependent. The PowerShell pool can use `pwsh` (PowerShell Core) on Linux, falling back to Graph API when PowerShell is unavailable.
+4. **Structured PowerShell output** — All V10 PowerShell functions return `[PSCustomObject]@{ Success=$true; Message="..."; Data=$result }`. This is the standard output contract that the Copilot review identified as missing but was actually implemented in V10.
 
 ---
 
-## 5. Roadmap Phase 1 — Stabilise and Harden (v2.2)
+## 6. Roadmap Phase 1 — Stabilise and Harden (v2.2)
 
 **Timeline:** 4-6 weeks  
-**Goal:** Make v2.1 production-grade before adding new capabilities.
+**Goal:** Make SysWatch v2.1 production-grade before adding M365 capabilities.
 
-### 5.1 Notification channels
+### 6.1 Notification channels
+- Email (SMTP), Slack, Teams, Discord, PagerDuty, generic webhook
 
-Currently alerts are stored in the database but nothing pushes them out. SysWatch needs real notification delivery.
+### 6.2 Real-time UI updates
+- WebSocket (Flask-SocketIO) for live metric streaming
+- Auto-refresh alert/event feeds
 
-- Email notifications (SMTP) — configurable per-user, per-severity
-- Slack webhook integration — post alerts to channels
-- Microsoft Teams webhook — post to Teams channels (this becomes especially relevant after M365 integration)
-- Discord webhook — for teams that use Discord
-- PagerDuty webhook — for on-call escalation
-- Webhook (generic) — user-defined URL + payload template
+### 6.3 Dashboard improvements
+- Time-range selector, host grouping, customisable widgets, capacity planning charts
 
-### 5.2 Real-time UI updates
+### 6.4 Agent enhancements
+- Windows Event Log collection, Linux syslog, Docker container metrics, process monitoring
 
-- WebSocket (Flask-SocketIO) for live metric streaming on the dashboard
-- Auto-refresh alert and event feeds without page reload
-- Live status indicator in the sidebar (green pulse → red flash on new critical alert)
+### 6.5 Security hardening
+- SSO (OAuth2/SAML), TOTP 2FA, rate limiting, API key scoping, session management UI
 
-### 5.3 Dashboard improvements
-
-- Time-range selector (1h, 6h, 24h, 7d, 30d) for charts
-- Host grouping and filtering by group, OS, status
-- Customisable dashboard widgets (drag-and-drop layout)
-- Capacity planning charts (disk usage trend → projected exhaustion date)
-
-### 5.4 Agent enhancements
-
-- Windows Event Log collection (forward to SysWatch for AI analysis)
-- Linux syslog forwarding (journald → SysWatch)
-- Docker container metrics (container CPU, memory, network)
-- Process-level monitoring (top N processes by CPU/memory)
-- Agent auto-update mechanism
-
-### 5.5 Security hardening
-
-- SSO via OAuth2 (Google, Microsoft) and SAML
-- TOTP-based 2FA for local logins
-- Rate limiting on API endpoints
-- API key scoping (per-key permissions)
-- Session management UI (view/revoke active sessions)
-- Password policy enforcement (complexity, rotation, history)
-
-### 5.6 Testing and CI/CD
-
-- Unit tests for core modules (database, security, alert_engine)
-- Integration tests for API endpoints
-- Docker-based end-to-end test environment
-- GitHub Actions CI pipeline (lint, test, build, push image)
-- Automated dependency vulnerability scanning
+### 6.6 Testing and CI/CD
+- Unit tests, integration tests, GitHub Actions CI, vulnerability scanning
 
 ---
 
-## 6. Roadmap Phase 2 — M365 Integration (v3.0)
+## 7. Roadmap Phase 2 — M365 Integration (v3.0)
 
 **Timeline:** 8-12 weeks  
-**Goal:** Integrate the M365-AI-SaaS-Toolkit into SysWatch as a first-class module.
+**Goal:** Port the M365 Toolkit V10 into SysWatch as a first-class module.
 
-### 6.1 M365 connection management
+### 7.1 M365 connection management
+- Port `azureAuth.js` to Python using `msal` SDK
+- Support both device-code (interactive) and client-secret (background) flows
+- Encrypted storage of tenant credentials using SysWatch's AES-256-GCM
+- Multi-tenant support
 
-- Azure AD app registration guide (step-by-step in settings UI)
-- Encrypted storage of tenant ID, client ID, client secret (using SysWatch's existing AES-256-GCM)
-- Microsoft Graph authentication via `msal` library (Python)
-- Connection health check (Graph API `/organization` endpoint)
-- Multi-tenant support (manage multiple M365 tenants from one SysWatch instance)
+### 7.2 PowerShell runner (Python port)
+- Port `securePowerShellRunner.js` concept to Python
+- `subprocess.Popen` with persistent stdin/stdout pipes
+- Per-tenant PowerShell sessions with pre-loaded Microsoft.Graph module
+- Support `pwsh` (Linux/macOS) and `powershell.exe` (Windows)
+- Session recycling, timeout, queue management
 
-### 6.2 PowerShell pool (Python port)
+### 7.3 M365 modules (port 90 real PowerShell functions + 8 JS module wrappers)
 
-Port the `powershellPool.js` concept to Python:
+| Module | PS functions | JS operations | Priority | Notes |
+|---|---|---|---|---|
+| Users | 29 | 6 | P0 | Most complete module — port all 29 PS functions |
+| Licensing | 15 | 6 | P0 | All via Graph API (subscribedSkus) |
+| Recovery | 15 | 0 (new) | P1 | Port all 15 real functions; this is a NEW module for SysWatch |
+| Groups | 11 | 6 | P1 | Graph API primary |
+| Exchange | 7 | 6 | P1 | PowerShell (ExchangeOnlineManagement) |
+| Security | 5 | 5 | P2 | Graph API (audit logs, risky users, sign-in logs, conditional access) |
+| Teams | 4 | 7 | P2 | Graph API + PowerShell; many Teams PS functions need full implementation |
+| SharePoint | 4 | 6 | P2 | PowerShell (PnP/SPO); many SP PS functions need full implementation |
+| Reports | 0 (new) | 6 | P2 | Port JS report functions; they call other modules' data |
 
-```python
-# backend/modules/m365/powershell_pool.py
-class PowerShellPool:
-    """Maintains persistent PowerShell sessions per tenant."""
-    # Uses subprocess.Popen with stdin/stdout pipes
-    # Supports both 'powershell.exe' (Windows) and 'pwsh' (Linux/macOS)
-    # Session initialisation: Import-Module Microsoft.Graph, ExchangeOnline, Teams
-    # Per-command execution with queue and timeout
-```
-
-### 6.3 M365 modules (port 181 real PowerShell functions)
-
-Each module gets:
-- A Python wrapper (`m365/modules/users.py`, etc.) that calls either Graph API or PowerShell
-- An API blueprint (`api_m365.py`) exposing REST endpoints
-- A web UI template with the dark slate / emerald theme
-- Integration with SysWatch's audit log (every M365 action is logged)
-
-| Module | Functions to port | Priority | Access method |
-|---|---|---|---|
-| Users | 24 (skip 6 empty stubs) | P0 | Graph API primary, PS for complex ops |
-| Licensing | 31 | P0 | Graph API (subscribedSkus) |
-| Exchange | 30 | P1 | PowerShell (ExchangeOnlineManagement) |
-| Groups | 30 | P1 | Graph API primary |
-| Teams | 31 | P2 | Graph API + PowerShell |
-| SharePoint | 29 | P2 | PowerShell (PnP or SPO) |
-
-### 6.4 M365-specific database tables
+### 7.4 M365 database tables
 
 ```sql
--- M365 tenant configuration
 CREATE TABLE IF NOT EXISTS m365_tenants (
-    id              INT AUTO_INCREMENT PRIMARY KEY,
-    name            VARCHAR(200) NOT NULL,
-    tenant_id       VARCHAR(100) NOT NULL UNIQUE,
-    client_id       VARCHAR(200) NOT NULL,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    tenant_id VARCHAR(100) NOT NULL UNIQUE,
+    client_id VARCHAR(200) NOT NULL,
     client_secret_enc TEXT NOT NULL,
     client_secret_iv VARCHAR(64) NOT NULL,
-    graph_endpoint  VARCHAR(200) DEFAULT 'https://graph.microsoft.com',
-    is_active       BOOLEAN DEFAULT TRUE,
-    last_synced     TIMESTAMP NULL,
-    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    graph_endpoint VARCHAR(200) DEFAULT 'https://graph.microsoft.com',
+    is_active BOOLEAN DEFAULT TRUE,
+    last_synced TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- M365 user cache (synced from Graph)
 CREATE TABLE IF NOT EXISTS m365_users (
-    id              INT AUTO_INCREMENT PRIMARY KEY,
-    tenant_id       INT NOT NULL,
-    upn             VARCHAR(255) NOT NULL,
-    display_name    VARCHAR(255),
-    given_name      VARCHAR(100),
-    surname         VARCHAR(100),
-    job_title       VARCHAR(200),
-    department      VARCHAR(200),
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id INT NOT NULL,
+    upn VARCHAR(255) NOT NULL,
+    display_name VARCHAR(255),
+    given_name VARCHAR(100),
+    surname VARCHAR(100),
+    job_title VARCHAR(200),
+    department VARCHAR(200),
     office_location VARCHAR(200),
-    usage_location  VARCHAR(10),
+    usage_location VARCHAR(10),
     account_enabled BOOLEAN DEFAULT TRUE,
-    created_date    DATETIME,
-    licenses        JSON,
-    last_synced     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_date DATETIME,
+    licenses JSON,
+    last_synced TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (tenant_id) REFERENCES m365_tenants(id) ON DELETE CASCADE,
     INDEX idx_m365user_upn (upn),
     INDEX idx_m365user_tenant (tenant_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- M365 license summary
 CREATE TABLE IF NOT EXISTS m365_licenses (
-    id              INT AUTO_INCREMENT PRIMARY KEY,
-    tenant_id       INT NOT NULL,
-    sku_id          VARCHAR(100) NOT NULL,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id INT NOT NULL,
+    sku_id VARCHAR(100) NOT NULL,
     sku_part_number VARCHAR(200),
-    display_name    VARCHAR(300),
-    consumed_units  INT DEFAULT 0,
-    prepaid_units   INT DEFAULT 0,
-    warning_ratio   DECIMAL(5,2) DEFAULT 0.90,
-    last_synced     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    display_name VARCHAR(300),
+    consumed_units INT DEFAULT 0,
+    prepaid_units INT DEFAULT 0,
+    warning_ratio DECIMAL(5,2) DEFAULT 0.90,
+    last_synced TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (tenant_id) REFERENCES m365_tenants(id) ON DELETE CASCADE,
     UNIQUE KEY uk_tenant_sku (tenant_id, sku_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- M365 audit log (from Unified Audit Log)
 CREATE TABLE IF NOT EXISTS m365_audit_events (
-    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
-    tenant_id       INT NOT NULL,
-    record_type     VARCHAR(100),
-    operation       VARCHAR(200),
-    workload        VARCHAR(50),
-    user_upn        VARCHAR(255),
-    object_id       VARCHAR(255),
-    result_status   VARCHAR(20),
-    details         JSON,
-    event_time      TIMESTAMP NOT NULL,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id INT NOT NULL,
+    record_type VARCHAR(100),
+    operation VARCHAR(200),
+    workload VARCHAR(50),
+    user_upn VARCHAR(255),
+    object_id VARCHAR(255),
+    result_status VARCHAR(20),
+    details JSON,
+    event_time TIMESTAMP NOT NULL,
     FOREIGN KEY (tenant_id) REFERENCES m365_tenants(id) ON DELETE CASCADE,
     INDEX idx_m365audit_time (event_time DESC),
     INDEX idx_m365audit_user (user_upn),
     INDEX idx_m365audit_op (operation)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- M365 execution history (all PS/Graph operations)
 CREATE TABLE IF NOT EXISTS m365_executions (
-    id              INT AUTO_INCREMENT PRIMARY KEY,
-    tenant_id       INT NOT NULL,
-    module          VARCHAR(50) NOT NULL,
-    action          VARCHAR(100) NOT NULL,
-    params          JSON,
-    result_status   ENUM('success','failed','partial') NOT NULL,
-    output          TEXT,
-    error           TEXT,
-    execution_ms    INT,
-    executed_by     VARCHAR(255) NOT NULL,
-    approved_by     VARCHAR(255),
-    executed_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tenant_id INT NOT NULL,
+    module VARCHAR(50) NOT NULL,
+    action VARCHAR(100) NOT NULL,
+    params JSON,
+    result_status ENUM('success','failed','partial') NOT NULL,
+    output TEXT,
+    error TEXT,
+    execution_ms INT,
+    executed_by VARCHAR(255) NOT NULL,
+    approved_by VARCHAR(255),
+    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (tenant_id) REFERENCES m365_tenants(id) ON DELETE CASCADE,
     INDEX idx_m365exec_module (module),
     INDEX idx_m365exec_time (executed_at DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
 
-### 6.5 M365 web UI templates
+### 7.5 M365 web UI templates
 
 | Template | Purpose |
 |---|---|
-| `m365_dashboard.html` | M365 overview: tenant health, license consumption, active users, recent audit events |
-| `m365_users.html` | User table with search, filter by license/status, bulk actions |
-| `m365_licenses.html` | License consumption bars, alerts when >90%, cleanup recommendations |
+| `m365_dashboard.html` | Tenant health, license consumption, user count, recent audit events |
+| `m365_users.html` | User table with search, filter, bulk actions |
+| `m365_licenses.html` | License consumption bars, >90% alerts, cleanup recommendations |
 | `m365_exchange.html` | Mailbox overview, large mailboxes, forwarding rules, audit |
 | `m365_teams.html` | Team inventory, empty teams, guest users, activity |
-| `m365_security.html` | M365 Secure Score, conditional access, sign-in risk, audit log |
+| `m365_security.html` | Secure Score, conditional access, sign-in risk, audit log |
+| `m365_recovery.html` | Deleted items recovery, undo operations, action history |
+| `m365_reports.html` | User activity, license usage, group activity, Teams/SharePoint usage |
 
-### 6.6 AI-powered M365 insights
+### 7.6 AI-powered M365 insights
 
-This is where the integration becomes genuinely powerful. SysWatch's existing AI engine extends to M365:
+Port V10's `aiService.js` concept into SysWatch's existing AI engine:
+- License optimisation AI ("15 unlicensed users, 3 disabled users with active licenses — reclaim to save Rs X/month")
+- Impossible-travel detection (sign-in anomalies)
+- Mailbox growth anomaly AI
+- Teams sprawl AI (inactive teams)
+- All suggestions flow through SysWatch's existing human-in-the-loop approval
 
-- **License optimisation AI:** "You have 15 unlicensed users and 3 disabled users with active licenses. Reclaiming those licenses saves Rs 4,500/month."
-- **Security anomaly AI:** "User john.doe@example.com signed in from Mumbai at 9 AM and from Lagos at 11 AM — impossible travel detected."
-- **Mailbox growth AI:** "The finance@ mailbox grew 2.3 GB in 7 days, 4x the normal rate. Suggest archiving items older than 2 years."
-- **Teams sprawl AI:** "23 Teams have had zero activity in 60 days. Suggest archiving."
-- **Remediation suggestions:** When SysWatch detects an on-prem Exchange server is overloaded (via the agent), the AI can suggest offloading to Exchange Online and present a one-click runbook to migrate mailboxes.
+### 7.7 Cross-domain alerting
 
-All AI suggestions flow through the existing human-in-the-loop approval workflow.
-
-### 6.7 Cross-domain alerting
-
-SysWatch can correlate infrastructure alerts with M365 events:
-
-- If the on-prem Exchange VM is DOWN → check if Hybrid Exchange mail flow is affected → alert
-- If disk is 95% full on a server → check if it hosts M365 AD Connect → alert that sync may fail
-- If a domain controller is unreachable → alert that M365 password resets via AD Connect will fail
-- If a monitored host is a SharePoint server → correlate SharePoint site health
+Correlate infrastructure alerts with M365 events:
+- Exchange VM down then check M365 mail flow
+- Disk 95% on AD Connect server then alert that M365 sync may fail
+- Domain controller unreachable then alert that M365 password resets will fail
 
 ---
 
-## 7. Roadmap Phase 3 — Advanced AI and Automation (v3.5)
+## 8. Roadmap Phase 3 — Advanced AI and Automation (v3.5)
 
 **Timeline:** 6-8 weeks  
-**Goal:** Move from reactive AI (suggests actions) to proactive AI (predicts and prevents).
+**Goal:** Move from reactive to proactive AI.
 
-### 7.1 Predictive alerting
-
-- CPU/memory trend forecasting using linear regression (already have the data)
-- Disk exhaustion prediction ("at current rate, /var will fill in 12 days")
-- M365 license exhaustion prediction ("at current growth, you'll exceed E5 licenses in 23 days")
-- Seasonal anomaly detection (knows that Monday 9 AM CPU spikes are normal)
-
-### 7.2 Natural language operations (AI Copilot)
-
-Replace the M365 Toolkit's keyword-based copilot with a real LLM-powered one:
-
-- "Show me all users who haven't logged in for 90 days" → queries Graph API, returns table
-- "Reclaim unused licenses" → AI identifies, lists, asks for approval, executes
-- "Why is server-db-01 slow?" → AI correlates metrics, identifies bottleneck, suggests fix
-- "Migrate john.doe to Exchange Online" → AI generates runbook, asks for approval, executes step-by-step
-
-### 7.3 Automated runbook generation
-
-- AI generates runbooks based on recurring alert patterns
-- "I've seen this disk-full issue 7 times this month. Shall I create a runbook?"
-- Runbooks can include both infrastructure commands (Linux/Windows) and M365 operations
-- Version-controlled runbook library with AI-assisted improvement suggestions
-
-### 7.4 Log intelligence
-
-- Parse Windows Event Logs and Linux syslog with AI for anomaly detection
-- "7 failed login attempts on PROD-DC-01 in 2 minutes from 3 different IPs — likely brute force"
-- Correlate log events across multiple hosts (lateral movement detection)
-- M365 Unified Audit Log analysis (when integrated with M365 module)
-
-### 7.5 Self-healing (with guardrails)
-
-- Auto-approve LOW-risk remediation actions (e.g., clear /tmp when disk >90%)
-- Auto-restart failed services (configurable per-service)
-- Auto-scale resources when sustained high load detected
-- All auto-actions are logged, reversible, and can be overridden
+- Predictive alerting (CPU/disk/license exhaustion forecasting)
+- Natural language operations ("Show me all users who haven't logged in for 90 days")
+- Automated runbook generation from recurring alert patterns
+- Log intelligence (Windows Event Log + Linux syslog + M365 audit log analysis)
+- Self-healing with guardrails (auto-approve LOW-risk actions, all logged and reversible)
 
 ---
 
-## 8. Roadmap Phase 4 — Ecosystem and Scale (v4.0)
+## 9. Roadmap Phase 4 — Ecosystem and Scale (v4.0)
 
 **Timeline:** 10-14 weeks  
-**Goal:** Make SysWatch the central nervous system of the entire IT estate.
+**Goal:** Central nervous system for the entire IT estate.
 
-### 8.1 Docker and Kubernetes monitoring
-
-- Docker container metrics (CPU, memory, network per container)
-- Docker host integration (Docker API → SysWatch agent)
-- Kubernetes cluster monitoring (pod health, node pressure, deployment status)
-- Container log streaming (stdout/stderr → SysWatch log intelligence)
-
-### 8.2 Network topology mapping
-
-- Auto-discover network topology via SNMP
-- Visual network map (interactive D3.js or vis.js graph)
-- Highlight bottleneck links and failing devices
-- VLAN and subnet overlay
-
-### 8.3 Asset inventory / CMDB
-
-- Auto-discover hardware (manufacturer, model, serial, warranty)
-- Track software installations and versions
-- Track license compliance (tie into M365 license module)
-- Dependency mapping (which services depend on which hosts)
-- End-of-life tracking (hardware and software)
-
-### 8.4 Configuration drift detection
-
-- Baseline host configurations (packages installed, config files, services running)
-- Detect unauthorised changes (new packages, modified configs, new services)
-- Alert on drift with diff view
-- Integration with Git for config version control
-
-### 8.5 Patch management
-
-- Detect available OS updates (Linux: apt/dnf, Windows: WSUS/Windows Update)
-- Patch compliance dashboard
-- Staged patching (test → staging → production)
-- Maintenance window scheduling
-- Pre/post patch health checks (run health check before and after patching)
-
-### 8.6 Multi-tenancy
-
-- Organisation-based isolation (each org sees only their hosts)
-- Role-based access per org (a user can be admin in org A, viewer in org B)
-- Shared global infrastructure (SysWatch server itself) visible to all
-- Per-tenant M365 configuration
-
-### 8.7 Mobile app / PWA
-
-- Progressive Web App for mobile monitoring
-- Push notifications for critical alerts
-- Quick action buttons (acknowledge alert, approve/reject remediation)
-- Biometric authentication (fingerprint/face)
-
-### 8.8 Marketplace / plugin system
-
-- Third-party integrations via plugin API (Zabbix, Nagios, Datadog import)
-- Custom metric collectors (user-written Python scripts registered as plugins)
-- Theme marketplace (custom dark/light themes)
-- Community runbook library (share and import runbooks)
+- Docker and Kubernetes monitoring
+- Network topology mapping (SNMP auto-discovery)
+- Asset inventory / CMDB
+- Configuration drift detection
+- Patch management
+- Multi-tenancy
+- Mobile PWA
+- Plugin marketplace
 
 ---
 
-## 9. Feature Backlog — SysAdmin Wish List
-
-Prioritised by impact and effort. Items marked with [M365] are specific to the M365 integration.
+## 10. Feature Backlog
 
 ### High impact, low effort (quick wins)
 
@@ -634,82 +496,83 @@ Prioritised by impact and effort. Items marked with [M365] are specific to the M
 | 2 | Slack/Teams webhook alerts | 1 day | High |
 | 3 | Dashboard time-range selector | 1 day | Medium |
 | 4 | Host group filtering on dashboard | 0.5 day | Medium |
-| 5 | Export host list / alert list as CSV | 0.5 day | Medium |
-| 6 | Dark/light theme toggle | 1 day | Low |
-| 7 | Password change on first login | 0.5 day | High |
-| 8 | API rate limiting | 1 day | High |
-| 9 | Session timeout warning | 0.5 day | Medium |
-| 10 | Health check endpoint for load balancer | 0.5 day | High |
+| 5 | Export host/alert lists as CSV | 0.5 day | Medium |
+| 6 | Password change on first login | 0.5 day | High |
+| 7 | API rate limiting | 1 day | High |
+| 8 | Health check endpoint for load balancer | 0.5 day | High |
 
 ### High impact, medium effort
 
 | # | Feature | Effort | Impact |
 |---|---|---|---|
-| 11 | WebSocket live updates (Flask-SocketIO) | 3 days | High |
-| 12 | Docker container monitoring | 4 days | High |
-| 13 | Windows Event Log collection | 3 days | High |
-| 14 | Process-level monitoring (top N) | 2 days | Medium |
-| 15 | SSO (Google / Microsoft OAuth2) | 3 days | High |
-| 16 | TOTP 2FA | 2 days | High |
-| 17 | [M365] Tenant connection + Graph auth | 3 days | High |
-| 18 | [M365] User listing + search (Graph API) | 2 days | High |
-| 19 | [M365] License dashboard | 2 days | High |
-| 20 | [M365] PowerShell pool (Python port) | 4 days | High |
+| 9 | WebSocket live updates (Flask-SocketIO) | 3 days | High |
+| 10 | Docker container monitoring | 4 days | High |
+| 11 | Windows Event Log collection | 3 days | High |
+| 12 | SSO (Google / Microsoft OAuth2) | 3 days | High |
+| 13 | TOTP 2FA | 2 days | High |
+| 14 | [M365] Port azureAuth.js to Python | 3 days | High |
+| 15 | [M365] Port securePowerShellRunner.js to Python | 4 days | High |
+| 16 | [M365] Port aiService.js M365 AI to Python | 3 days | High |
+| 17 | [M365] Port 8 module wrappers (users, licensing, exchange, groups, teams, sharepoint, security, reports) | 1 week | High |
 
 ### High impact, high effort (major features)
 
 | # | Feature | Effort | Impact |
 |---|---|---|---|
-| 21 | [M365] Full Users module (24 functions) | 2 weeks | High |
-| 22 | [M365] Full Licensing module (31 functions) | 2 weeks | High |
-| 23 | [M365] Exchange module (30 functions) | 2 weeks | High |
-| 24 | [M365] Groups module (30 functions) | 1.5 weeks | Medium |
-| 25 | [M365] Teams module (31 functions) | 1.5 weeks | Medium |
-| 26 | [M365] SharePoint module (29 functions) | 1.5 weeks | Medium |
-| 27 | [M365] Cross-domain alerting (infra x M365) | 1 week | High |
+| 18 | [M365] Full Users module (29 PS functions) | 2 weeks | High |
+| 19 | [M365] Full Licensing module (15 functions) | 1 week | High |
+| 20 | [M365] Recovery module (15 functions — NEW for SysWatch) | 1.5 weeks | High |
+| 21 | [M365] Exchange module (7 functions + missing implementations) | 1.5 weeks | High |
+| 22 | [M365] Groups module (11 functions) | 1 week | Medium |
+| 23 | [M365] Security module (5 functions) | 0.5 week | Medium |
+| 24 | [M365] Teams module (4 real + 27 to implement) | 2 weeks | Medium |
+| 25 | [M365] SharePoint module (4 real + 25 to implement) | 2 weeks | Medium |
+| 26 | [M365] 8 web UI templates | 1.5 weeks | High |
+| 27 | [M365] Cross-domain alerting | 1 week | High |
 | 28 | [M365] AI-powered M365 insights | 2 weeks | High |
 | 29 | Kubernetes monitoring | 3 weeks | High |
-| 30 | Network topology mapping | 3 weeks | Medium |
-| 31 | Asset inventory / CMDB | 4 weeks | High |
-| 32 | Configuration drift detection | 3 weeks | Medium |
-| 33 | Patch management | 4 weeks | High |
-| 34 | Multi-tenancy | 4 weeks | Medium |
-| 35 | Mobile PWA | 3 weeks | Medium |
-| 36 | Predictive alerting (trend forecasting) | 2 weeks | High |
-| 37 | Natural language AI copilot | 3 weeks | High |
-| 38 | Self-healing automation | 2 weeks | High |
+| 30 | Asset inventory / CMDB | 4 weeks | High |
+| 31 | Patch management | 4 weeks | High |
+| 32 | Multi-tenancy | 4 weeks | Medium |
+| 33 | Mobile PWA | 3 weeks | Medium |
+| 34 | Predictive alerting | 2 weeks | High |
+| 35 | Natural language AI copilot | 3 weeks | High |
+| 36 | Self-healing automation | 2 weeks | High |
 
 ---
 
-## 10. Summary Opinion
+## 11. Summary Opinion
 
-### On the M365 integration
+### What changed from the first roadmap
 
-The M365-AI-SaaS-Toolkit brings 181 real PowerShell functions covering six M365 workloads (Users, Licensing, Exchange, Groups, Teams, SharePoint). The Node.js wrapper around them is thin and disposable — the real value is in the PowerShell scripts themselves, which Python can invoke directly via `subprocess`.
+The first roadmap was written based on the GitHub repository, which is an early skeleton. The uploaded codebase reveals a project that is far more advanced than the GitHub repo suggested:
 
-**My recommendation: integrate it. Do not keep them as separate projects.**
+- **90 real PowerShell functions** (not 181 as previously stated, but far better quality than assumed — proper CmdletBinding, validation, structured output)
+- **Security and Recovery modules are real** (not stubs as previously stated) — 5 security functions and 15 recovery functions with genuine implementations
+- **Full AI service** (not keyword matching as on GitHub) — LLM-powered intent mapping with confirmation flow
+- **Azure AD device-code authentication** — real MSAL integration, not plaintext JWT
+- **49 API routes** (not 4) with audit logging via `logAndRespond` wrapper
+- **RBAC, rate limiting, helmet, CORS** — security middleware that GitHub doesn't have
 
-The integration creates a unified platform that covers the full sysadmin lifecycle — monitor, alert, diagnose, remediate — for both on-premises infrastructure and Microsoft 365 cloud. This is genuinely valuable. No single open-source tool does both well today.
+### Revised integration recommendation
 
-The technical path is clear:
+**Integrate it. The V10 codebase proves the concept works.**
 
-1. **Phase 1 (v2.2):** Stabilise SysWatch — notifications, real-time UI, testing, security hardening. 4-6 weeks.
-2. **Phase 2 (v3.0):** Integrate M365 — port PowerShell functions, build M365 API and UI, add AI-powered M365 insights. 8-12 weeks.
-3. **Phase 3 (v3.5):** Advanced AI — predictive alerting, natural language copilot, self-healing. 6-8 weeks.
-4. **Phase 4 (v4.0):** Ecosystem — Docker/K8s, CMDB, patch management, multi-tenancy, mobile. 10-14 weeks.
+The integration is now primarily a **port** (Node.js to Python) rather than a **build** (from scratch). The V10 architecture — device-code auth, secure PowerShell runner, AI service with action mapping, audit logging, module-based structure — maps cleanly to SysWatch's existing patterns (JWT auth, subprocess execution, AI/LLM engine, audit log, blueprint-based API).
 
-### On the M365 Toolkit's current state
+The key insight from the Copilot chat review is that the user demands discipline: validate before building, anchor on existing code, no parallel architecture. This aligns perfectly with a port approach — take what works in V10, translate it to Python/Flask, and integrate it into SysWatch's existing framework.
 
-The toolkit is about 60% complete. The six implemented modules (Users, Licensing, Exchange, Groups, Teams, SharePoint) have real, functional PowerShell functions. The Security and Recovery modules (60 functions) are empty stubs — they should either be implemented properly or dropped. The Node.js API layer only wires up the Users module; the other five are defined but not routed. The copilot is keyword-matching, not AI. The database is minimal (2 tables).
+### On what makes this integration uniquely valuable
 
-**However, the PowerShell function library itself is the asset.** Each function is a small, focused, well-named operation that maps to a real M365 management task. Porting these into SysWatch's Python + PowerShell hybrid model is straightforward, and SysWatch's existing infrastructure (encrypted credentials, audit logging, AI engine, human-in-the-loop approval, web UI) makes them immediately more useful than they are in the standalone toolkit.
+No single open-source tool today combines:
+- On-premises infrastructure monitoring (CPU, disk, network, SNMP)
+- Microsoft 365 cloud management (users, licenses, Exchange, Teams, SharePoint)
+- AI-powered diagnosis connecting both domains
+- Human-in-the-loop remediation with audit trail
+- Self-hosted (no SaaS dependency)
 
-### On what makes SysAdmins choose a tool
-
-Sysadmins choose tools that reduce the number of dashboards they have to check. The promise of SysWatch v3.0 is that a sysadmin can see their Linux server CPU at 95%, their M365 license consumption at 90%, and their Exchange mailbox growth anomaly — all on one dashboard — and act on all three with AI-assisted remediation through a single approval workflow. That is a compelling proposition.
-
-The roadmap above is ambitious but sequenced so that each phase delivers value independently. v2.2 makes the current product production-grade. v3.0 adds the M365 dimension. v3.5 adds intelligence. v4.0 adds scale.
+SysWatch v3.0 would be that tool.
 
 ---
 
-*This roadmap is a living document. It should be revisited at the end of each phase and adjusted based on user feedback, new requirements, and the evolving threat landscape.*
+*This roadmap is a living document. Revisit at the end of each phase.*
